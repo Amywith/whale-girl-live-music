@@ -340,3 +340,44 @@ html.audience-view .card.queue{left:auto;right:2.6%;top:61%;bottom:auto;width:33
 .card.queue .queue-sub{display:none!important}
 html.audience-view .card.queue .queue-sub{display:none!important}
 
+/* ── 礼物玩法浅粉字清晰化 ──
+   糊的根因有三层，都已处理：
+   1) -webkit-text-stroke 是「居中描边」，.26~.32cqw(约2.1~2.6px)的白边会向内
+      吃掉粉色字芯，笔画被侵蚀成细弱的粉线，看上去就是糊的 → 直接去掉。
+   2) text-shadow 带 .4~.5cqw(3~4px) 的模糊半径，形成暗红光晕让边缘发虚
+      → 换成 0 模糊的硬边描边，只负责和背景分离，不损失锐度。
+   3) 卡片背景不够实(.66/.72)，半透明毛玻璃透出后面的房间纹理，浅粉字压不住
+      → 背景加深到 .82/.88，对比度上来后字形自然更实。
+   另外字重 700→800 并换用笔画更硬朗的字族，抗 window→画布 1.33x 放大。 */
+.gift-menu,html.audience-view .gift-menu{
+  background:linear-gradient(180deg,rgba(36,15,48,.9),rgba(18,9,28,.93));
+  border-color:rgba(255,255,255,.26)}
+.gift-menu .gift-head b,.gift-menu .gift-row b,.gift-menu .gift-row span,
+html.audience-view .gift-menu .gift-head b,
+html.audience-view .gift-menu .gift-row b,
+html.audience-view .gift-menu .gift-row span{
+  -webkit-text-stroke:0;
+  /* 雅黑只有 Regular/Bold 两档，写 800 会触发合成加粗(fake bold)，笔画反而粘连；
+     700 才是真实 Bold 字形，边缘最干净 */
+  font-weight:700;
+  letter-spacing:.01cqw;
+  font-family:'Microsoft YaHei UI','Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Source Han Sans CN',sans-serif;
+  text-rendering:geometricPrecision;
+  text-shadow:
+    .09cqw 0 0 rgba(26,6,22,.62), -.09cqw 0 0 rgba(26,6,22,.62),
+    0 .09cqw 0 rgba(26,6,22,.62), 0 -.09cqw 0 rgba(26,6,22,.62),
+    0 .1cqw .22cqw rgba(0,0,0,.45)}
+.gift-menu .gift-head b,html.audience-view .gift-menu .gift-head b{
+  color:#ff8fb6;font-size:3.05cqw}
+.gift-menu .gift-row b,html.audience-view .gift-menu .gift-row b{
+  color:#ffa3c6;font-size:3.05cqw}
+.gift-menu .gift-row span,html.audience-view .gift-menu .gift-row span{
+  color:#ffd9e7;font-size:2.8cqw}
+
+/* 点歌卡里的浅灰蓝小字同样偏虚，压深一档提高对比 */
+.card.queue .music-playing-label{color:#6b7fa6}
+.card.queue .music-current-artist{color:#5a7099}
+.card.queue .music-song-artist,.card.queue .music-song-viewer{color:#7a8db0}
+.queue-count{color:#6d84a8}
+.queue-empty{color:#7a8db0}
+
