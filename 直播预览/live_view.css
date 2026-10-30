@@ -327,6 +327,12 @@ html.audience-view .ai-pill{font-size:1.75cqw;padding:.55cqw 1.4cqw;background:r
 /* ── 去掉小黑板（鲸鱼账本），点歌列表移到小黑板原位置 ── */
 .card.balance{display:none!important}
 html.audience-view .card.balance{display:none!important}
-.card.queue{left:auto;right:2.4%;top:61%;bottom:auto;width:33%}
-html.audience-view .card.queue{left:auto;right:2.4%;top:61%;bottom:auto;width:33%;transform:none}
+
+/* ── 礼物玩法与点歌卡：左右边缘严格对齐（同 right、同宽度） ── */
+.gift-menu,.card.queue{left:auto;right:2.6%;width:33%;max-width:none}
+html.audience-view .gift-menu,html.audience-view .card.queue{left:auto;right:2.6%;width:33%;max-width:none}
+html.audience-view .card.queue{top:61%;bottom:auto;transform:none}
+/* 点歌卡去掉「想听什么歌 / 在公屏打出来哦~」提示 */
+.card.queue .queue-sub{display:none!important}
+html.audience-view .card.queue .queue-sub{display:none!important}
 
