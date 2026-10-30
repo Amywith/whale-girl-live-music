@@ -280,3 +280,53 @@ html.audience-view .bubble{display:none!important}
 .card.balance .ledger-row.strong b{color:#fff9e6}
 .card.balance .ledger-foot{color:rgba(240,232,205,.65)}
 
+/* ── 竖屏可读性增强：字号整体放大 + 提高对比（放在文件末尾，覆盖前面的小字与低透明度） ── */
+html.audience-view .stage,html.audience-view .stage *{text-rendering:optimizeLegibility}
+
+/* 鲸鱼账本：加宽、字号放大、文字提高对比 */
+html.audience-view .card.balance{width:33%;top:61%;padding:.85cqw 1.1cqw .6cqw}
+html.audience-view .card.balance h3{font-size:1.75cqw;color:#fff9e6}
+html.audience-view .card.balance .ledger-head b{font-size:2.2cqw}
+html.audience-view .card.balance .ledger-live{font-size:1.5cqw;color:#a6f0c2}
+html.audience-view .card.balance .ledger-row{padding:.5cqw 0}
+html.audience-view .card.balance .ledger-row span{font-size:2cqw;font-weight:600;color:#e9f5ea}
+html.audience-view .card.balance .ledger-row b{font-size:2.35cqw;color:#fffdf2}
+html.audience-view .card.balance .ledger-balance span{font-size:1.85cqw;color:#f4fafc}
+html.audience-view .card.balance .ledger-balance b{font-size:3cqw;color:#ffd97a;text-shadow:0 0 .7cqw rgba(255,190,80,.5)}
+html.audience-view .card.balance .ledger-foot{font-size:1.6cqw;color:rgba(250,245,231,.95)}
+
+/* 点歌卡：加宽、放大、玻璃底加实一点让字透不出来 */
+html.audience-view .card.queue{width:33%;top:78%;padding:.9cqw 1.15cqw;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.1)),rgba(8,18,36,.66);border-color:rgba(255,255,255,.38)}
+html.audience-view .card.queue .queue-head b{font-size:2.6cqw}
+html.audience-view .card.queue .queue-count{font-size:1.85cqw;color:rgba(255,255,255,.95)}
+html.audience-view .card.queue .queue-sub{font-size:1.85cqw;line-height:1.5;color:rgba(255,255,255,.95)}
+html.audience-view .card.queue .music-current{min-height:4.4cqw;padding:.6cqw .95cqw;background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.34)}
+html.audience-view .card.queue .music-playing-label{font-size:1.5cqw;color:rgba(255,255,255,.9)}
+html.audience-view .card.queue .music-current-title{font-size:2.2cqw;font-weight:800;color:#fff}
+html.audience-view .card.queue .music-current-artist{font-size:1.8cqw;color:rgba(255,255,255,.95)}
+html.audience-view .card.queue .music-song-title{font-size:1.7cqw;color:rgba(255,255,255,.95)}
+html.audience-view .card.queue .music-song-artist,html.audience-view .card.queue .music-song-viewer{font-size:1.4cqw;color:rgba(255,255,255,.9)}
+html.audience-view .card.queue .queue-empty{font-size:1.7cqw;color:rgba(255,255,255,.85)}
+
+/* 礼物玩法：底色压暗让粉字更清楚，字号再放大一档 */
+html.audience-view .gift-menu{max-width:36%;top:41.5%;padding:1cqw 1.15cqw;gap:.55cqw;background:linear-gradient(180deg,rgba(44,20,54,.66),rgba(24,12,34,.72));border-color:rgba(255,255,255,.2)}
+html.audience-view .gift-menu .gift-head b{font-size:2.95cqw;-webkit-text-stroke:.32cqw #fffdf6}
+html.audience-view .gift-menu .gift-row b{font-size:2.9cqw;-webkit-text-stroke:.32cqw #fffdf6}
+html.audience-view .gift-menu .gift-row span{font-size:2.45cqw;-webkit-text-stroke:.26cqw #fffdf6}
+html.audience-view .gift-menu .gift-row img{width:3.2cqw;height:3.2cqw}
+html.audience-view .gift-menu .gift-row i{font-size:3cqw}
+
+/* 互动菜单 */
+html.audience-view .card.fun-menu{width:32%;gap:.7cqw;padding:1.05cqw 1.2cqw}
+html.audience-view .card.fun-menu .fun-row b{font-size:2.05cqw}
+html.audience-view .card.fun-menu .fun-row span{font-size:1.45cqw;color:rgba(238,235,255,.95)}
+
+/* AI 标识 */
+html.audience-view .ai-pill{font-size:1.75cqw;padding:.55cqw 1.4cqw;background:rgba(255,255,255,.28);border-color:rgba(255,255,255,.4);color:#fff;font-weight:600}
+
+/* ── 去掉小黑板（鲸鱼账本），点歌列表移到小黑板原位置 ── */
+.card.balance{display:none!important}
+html.audience-view .card.balance{display:none!important}
+.card.queue{left:auto;right:2.4%;top:61%;bottom:auto;width:33%}
+html.audience-view .card.queue{left:auto;right:2.4%;top:61%;bottom:auto;width:33%;transform:none}
+
