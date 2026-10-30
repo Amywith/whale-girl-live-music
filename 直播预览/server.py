@@ -377,7 +377,11 @@ STAGE_WIN = {'state': 'idle', 'message': '未启动', 'busy': False}
 STAGE_WIN_LOCK = threading.Lock()
 
 def find_stage_windows():
-    """按窗口标题找竖屏直播画面窗口（live_view.js 把标题写成「…直播间」）。"""
+    """按窗口标题找竖屏直播画面窗口（live_view.js 把标题写成「大肥鱼 · 直播间」）。
+
+    只认「… · 直播间」这种带间隔点的标题。不能只匹配「直播间」两个字：
+    浏览器里打开的抖音直播间页面（标题「xxx的抖音直播间」）会被误判成我们的窗口。
+    """
     if not ctypes:
         return []
     try:
@@ -393,7 +397,7 @@ def find_stage_windows():
                     return True
                 buf = ctypes.create_unicode_buffer(n + 1)
                 user32.GetWindowTextW(hwnd, buf, n + 1)
-                if '直播间' in buf.value:
+                if ' · 直播间' in buf.value:
                     found.append(int(hwnd))
             except Exception:
                 pass
