@@ -21,6 +21,12 @@
  const themePanel=document.createElement('div');themePanel.className='controls stage-theme-panel';
  themePanel.innerHTML='<b>营业场景</b><button id="stageThemeToggle" class="stage-theme-toggle" role="switch" aria-label="切换到夜晚营业" aria-checked="false" disabled><span>☀ 白天营业</span><span>☾ 夜晚营业</span></button><p id="stageThemeState" class="note">正在读取场景…</p><button id="stageThemeAuto" class="stage-theme-auto">跟随北京时间</button>';
  modelPanel.after(themePanel);
+ // ── 角色语音音量：实时增益，不必重启 ──
+ const voicePanel=document.createElement('div');voicePanel.className='controls voice-panel';
+ voicePanel.innerHTML='<b>🔊 角色语音音量</b><p class="note">直播里大肥鱼说话的声音大小，改完立即生效。游戏声音请用系统“音量混合器”单独调低。</p><label for="voiceGain">语音增益 <span id="voiceGainVal">1.4×</span></label><input id="voiceGain" type="range" min="0.6" max="2.0" step="0.1" value="1.4"><p class="note">1.0=原声；调太高可能破音，1.3~1.6 比较稳。</p>';
+ themePanel.after(voicePanel);
+ const voiceGain=$('voiceGain'),voiceGainVal=$('voiceGainVal');
+ voiceGain.oninput=()=>{const v=parseFloat(voiceGain.value);voiceGainVal.textContent=v.toFixed(1)+'×';voicePlayer.setGain(v);};
  let effectiveTheme='day';
  function renderTheme(visual){
   const theme=visual?.time_theme;if(!theme)return;effectiveTheme=theme.effective;

@@ -250,6 +250,20 @@ def pvz_clean_env():
             env.pop(key, None)
     return env
 
+def _breakaway_flags(base=0):
+    """让游戏/看门狗脱离当前作业对象：直播服务重启时它们不再陪葬。
+    游戏窗口必须可见（正在推流），所以不能用 DETACHED_PROCESS/CREATE_NO_WINDOW。"""
+    flags = base | subprocess.CREATE_BREAKAWAY_FROM_JOB
+    return flags
+
+def _popen_breakaway(cmd, **kwargs):
+    """优先带 breakaway 启动；宿主不允许脱离作业对象时退回普通启动。"""
+    flags = kwargs.pop('creationflags', 0)
+    try:
+        return subprocess.Popen(cmd, creationflags=_breakaway_flags(flags), **kwargs)
+    except OSError:
+        return subprocess.Popen(cmd, creationflags=flags, **kwargs)
+
 def pvz_port_open():
     try:
         with socket.create_connection(('127.0.0.1', 9222), timeout=1.5):
@@ -272,7 +286,7 @@ def _pvz_launch_flow(gen):
                 return
             with PVZ_LOCK:
                 PVZ['message'] = '正在启动游戏（PvZAI_Launcher）…'
-            subprocess.Popen([str(PVZ_TOOLS['launcher'])], cwd=str(PVZ_TOOLS['launcher'].parent), env=pvz_clean_env(),
+            _popen_breakaway([str(PVZ_TOOLS['launcher'])], cwd=str(PVZ_TOOLS['launcher'].parent), env=pvz_clean_env(),
                              stdout=open(RUNTIME / 'pvz-launcher.log', 'a', encoding='utf-8'), stderr=subprocess.STDOUT,
                              creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
             deadline = time.time() + 180
@@ -294,7 +308,7 @@ def _pvz_launch_flow(gen):
                 return
             PVZ['message'] = '游戏就绪，挂载循环看门狗…'
             logf = open(RUNTIME / 'pvz-watchdog.log', 'a', encoding='utf-8')
-            PVZ['proc'] = subprocess.Popen([str(PVZ_TOOLS['node']), str(PVZ_TOOLS['watchdog']), 'Cocos'],
+            PVZ['proc'] = _popen_breakaway([str(PVZ_TOOLS['node']), str(PVZ_TOOLS['watchdog']), 'Cocos'],
                                            cwd=str(PVZ_TOOLS['watchdog'].parent), env=pvz_clean_env(),
                                            stdout=logf, stderr=subprocess.STDOUT)
         time.sleep(3)
