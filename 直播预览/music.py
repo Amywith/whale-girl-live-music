@@ -221,8 +221,14 @@ class MusicService:
         self.queue = saved.get('queue', [])
         self.current = saved.get('current')
         self.recent = saved.get('recent', [])
-        # Reopening the app never resumes playback or re-inserts an uncertain song.
-        self.enabled = False
+        # Reopening the app never resumes playback or re-inserts an uncertain song,
+        # but a request that is still waiting must keep being served: viewers are
+        # watching it and the queue would otherwise sit still until the next request.
+        # 'activating' means the native outcome is unknown, so it stays paused; so
+        # does a 'staged' item that was never confirmed by the player.
+        self.enabled = any(t.get('state') == 'waiting' or
+                           (t.get('state') == 'staged' and str(t.get('native_outcome', '')).lower() == 'verified')
+                           for t in self.queue)
         self.error = ''
         self.deadline = 0
         self.stop_event = threading.Event()
@@ -436,8 +442,44 @@ class MusicService:
                     changed_at = head.setdefault('transition_observed_at', self.clock())
                     if self.clock()-changed_at >= self.rulebook.snapshot()['music']['handoff_grace_seconds']:
                         raise RuntimeError('网易云未切到已安排的点歌，接管暂停，待播保留；未重复插入或覆盖原歌单')
-                elif head.pop('transition_observed_at', None) is not None:
-                    self.save()
+                else:
+                    # Still parked on the anchor track. If the native player is
+                    # paused (or finished and stopped advancing), the handoff never
+                    # arrives and the request would stall forever, which looks like
+                    # "点歌没反应 / 一直在放同一首". Nudge it: wake the player first,
+                    # then play the request directly once we have waited long enough.
+                    limits = self.rulebook.snapshot()['music']
+                    # Fall back to the queued time so requests that were already
+                    # stalled before this logic existed recover on the next tick
+                    # instead of starting a fresh wait.
+                    started = head.get('staged_wait_started_at') or head.get('created') or self.clock()
+                    head['staged_wait_started_at'] = started
+                    waited = self.clock()-started
+                    resume_after = float(limits.get('staged_resume_after_seconds') or 0)
+                    timeout = float(limits.get('staged_wait_timeout_seconds') or 0)
+                    capabilities = snapshot.get('capabilities') or getattr(self.bridge, 'capabilities', {}) or {}
+                    if timeout and waited >= timeout:
+                        # Stop waiting for a handoff that is not coming: play it now.
+                        head.pop('staged_wait_started_at', None)
+                        head.pop('resume_attempted_at', None)
+                        self.deadline = time.monotonic()+25
+                        self._execute_once('PlaySelected', head)
+                        self.save()
+                        return
+                    if (resume_after and waited >= resume_after and capabilities.get('resume')
+                            and self.clock()-float(head.get('resume_attempted_at') or 0) >= resume_after):
+                        # Resume is idempotent while a track is playing, so nudging a
+                        # paused player is safe and costs nothing. Repeat every
+                        # resume_after seconds until the handoff actually happens.
+                        try:
+                            self.bridge.request('execute', command='Resume')
+                        except Exception:
+                            pass
+                        head['resume_attempted_at'] = self.clock()
+                        self.save()
+                        return
+                    if head.pop('transition_observed_at', None) is not None:
+                        self.save()
                 return
             if self.current and playing_id and playing_id != str(self.current['track']['id']):
                 # Respect a manual switch; never immediately replace the user's song.

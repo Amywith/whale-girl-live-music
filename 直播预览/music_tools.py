@@ -50,10 +50,23 @@ class MusicToolSession:
             limits = music.rulebook.snapshot()['music']
             player = music.bridge.snapshot
             current = player.get('current') if player.get('connected') else None
+            stall_after = float(limits.get('staged_resume_after_seconds') or 0)
+            handoff_waiting_seconds = 0.0
+            head = music.queue[0] if music.queue else None
+            if head is not None and head.get('state') == 'staged':
+                started = head.get('staged_wait_started_at') or head.get('created')
+                if started:
+                    handoff_waiting_seconds = max(0.0, music.clock()-float(started))
+            # A staged request that has been waiting past the nudge threshold never
+            # reached the player, so the room is effectively silent even though the
+            # native player still reports a current track.
+            playback_stalled = bool(stall_after and handoff_waiting_seconds >= stall_after)
             return {'viewer': {'nickname': self.nickname},
                     'my_queued_songs': [public_track(v['track']) for v in music.queue if v['user_id'] == self.user_id],
                     'queue_count': len(music.queue), 'queue_limit': limits['max_pending'],
                     'current_track': public_track(current) if current else None,
+                    'playback_stalled': playback_stalled,
+                    'handoff_waiting_seconds': round(handoff_waiting_seconds),
                     'player_connected': bool(player.get('connected')), 'observed_at': player.get('observedAt'),
                     'queue_count_excludes_current': True,
                     'queued_songs': [{'position': i, 'track': public_track(v['track']), 'nickname': v['nickname']} for i,v in enumerate(music.queue,1)],
