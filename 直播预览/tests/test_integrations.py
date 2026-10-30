@@ -7,6 +7,7 @@ import time
 import unittest
 from pathlib import Path
 from music import MusicService, parse_request
+from rules_config import RuleConfig
 from studio import EventRules, Studio
 from douyin import DouyinSource
 from speech import synthesize
@@ -266,6 +267,12 @@ class MusicTests(unittest.TestCase):
         self.music = MusicService(self.root, self.bridge)
     def tearDown(self): self.tmp.cleanup()
 
+    def queue_behind_current(self):
+        """The legacy policy: a request waits behind whatever is playing."""
+        book = RuleConfig(self.root)
+        book.data['music']['request_switches_now'] = False
+        self.music.rulebook = book
+
     def test_explicit_singer_exact_version(self):
         result = self.music.order('点歌 晴天 / 周杰伦')
         self.assertEqual(result['status'], 'queued')
@@ -294,7 +301,19 @@ class MusicTests(unittest.TestCase):
         self.music.tick()
         self.assertFalse(any(a == 'execute' for a, _ in self.bridge.calls))
 
+    def test_request_switches_to_the_song_on_air_at_once(self):
+        self.music.order('晴天 / 周杰伦')
+        self.music.control('start')
+        self.music.tick()
+        commands = [d['command'] for a, d in self.bridge.calls if a == 'execute']
+        self.assertEqual(commands, ['PlaySelected'])
+        self.assertEqual(self.bridge.snapshot['current']['id'], '1000001')
+        self.music.tick()
+        self.assertEqual(self.music.current['track']['id'], '1000001')
+        self.assertEqual(self.music.queue, [])
+
     def test_next_insert_is_once_and_acknowledged_by_song_id(self):
+        self.queue_behind_current()
         self.music.order('晴天 / 周杰伦')
         self.bridge.tracks = [copy.deepcopy(TRACKS[2])]; self.music.order('稻香 / 周杰伦')
         self.music.control('start')

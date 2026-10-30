@@ -231,6 +231,7 @@ class MusicService:
                            for t in self.queue)
         self.error = ''
         self.deadline = 0
+        self.keep_alive_at = self.clock()
         self.stop_event = threading.Event()
         self.wake_event = threading.Event()
         self.worker = None
@@ -292,29 +293,115 @@ class MusicService:
     def start_requested_queue(self):
         # Only a successful request starts playback; opening the page does not.
         self.enabled = True
+        self.keep_alive_at = self.clock()
         if self.queue and self.queue[0]['state'] == 'activating' and not self.deadline:
             self.deadline = time.monotonic()+25  # observe an old operation, never reinsert it
         self.error = ''
         self.wake_event.set()
 
-    def order(self, text, user_id='local', nickname='测试观众', request=None, automatic=False):
+    def order(self, text, user_id='local', nickname='测试观众', request=None, automatic=False, source='viewer'):
         request = request or parse_request(text)
         with self.lock:
             limits = self.rulebook.snapshot()['music']
             self._check_capacity(user_id, limits)
             if automatic:
                 self.prepare_playback()
+            if source != 'auto':
+                # A viewer asking for a song outranks the host's own free play:
+                # those entries are ours to drop, so the request plays at once.
+                self._drop_autoplay_items()
             tracks = self.bridge.request('search', query=request['query']) or []
             tracks = [t for t in tracks if isinstance(t, dict) and t.get('id')][:15]
             if not tracks:
                 raise ValueError('网易云没有搜到这首歌')
             # User policy: preserve search ranking and play its first result.
-            result = self._enqueue(tracks[0], user_id, nickname)
+            result = self._enqueue(tracks[0], user_id, nickname, source=source)
             if automatic:
                 self.start_requested_queue()
             return result
 
-    def _enqueue(self, track, user_id, nickname):
+    def _drop_autoplay_items(self):
+        if not any(t.get('source') == 'auto' for t in self.queue):
+            return
+        self.queue = [t for t in self.queue if t.get('source') != 'auto']
+        self.save()
+
+    def _should_switch_now(self, head, snapshot):
+        """A viewer's song plays at once, unless another viewer song is already
+        playing: then it simply waits its turn instead of cutting it off."""
+        playing_id = str((snapshot.get('current') or {}).get('id', ''))
+        if not playing_id:
+            return True
+        limits = self.rulebook.snapshot()['music']
+        if not limits.get('request_switches_now') or head.get('source') != 'viewer':
+            return False
+        if self.current and str(self.current['track']['id']) == playing_id:
+            return False  # the song on air is itself a viewer request
+        return True
+
+    def _keep_playing(self, snapshot):
+        """Nobody requested anything: keep the room's music flowing on its own."""
+        limits = self.rulebook.snapshot()['music']
+        if not limits.get('autoplay_enabled') or self.queue:
+            return
+        playlist = [str(name).strip() for name in (limits.get('autoplay_playlist') or []) if str(name).strip()]
+        if not snapshot.get('current'):
+            # The player ran out of songs: queue one ourselves, or at least ask
+            # the native player to advance instead of sitting there silent.
+            if playlist:
+                self._autoplay_enqueue(playlist, limits)
+                return
+            self._nudge_player(snapshot, advance=True)
+            return
+        # Resume is idempotent while a track is playing, so this only rescues a
+        # player that is parked or paused; it never cuts off a running song.
+        interval = float(limits.get('autoplay_keep_playing_seconds') or 0)
+        if interval and self.clock()-float(self.keep_alive_at or 0) >= interval:
+            self.keep_alive_at = self.clock()
+            self._nudge_player(snapshot)
+
+    def _nudge_player(self, snapshot, advance=False):
+        capabilities = snapshot.get('capabilities') or getattr(self.bridge, 'capabilities', {}) or {}
+        command = ''
+        if advance and capabilities.get('next'):
+            command = 'Next'
+        elif capabilities.get('resume'):
+            command = 'Resume'
+        elif capabilities.get('next'):
+            command = 'Next'
+        if not command:
+            return
+        try:
+            self.bridge.request('execute', command=command)
+        except Exception:
+            pass
+
+    def _autoplay_enqueue(self, playlist, limits):
+        """Queue the least recently played free-play title; never duplicates."""
+        cooldown = float(limits.get('replay_cooldown_seconds') or 0)
+        played = {}
+        for item in self.recent:
+            title = str((item.get('track') or {}).get('title') or '')
+            finished = item.get('finished_at')
+            if title and finished is not None:
+                played[title] = max(played.get(title, 0.0), float(finished))
+        cooled = [name for name in playlist if self.clock()-played.get(name, 0.0) >= cooldown]
+        for name in (cooled or list(playlist))[:3]:
+            try:
+                tracks = self.bridge.request('search', query=name) or []
+            except Exception:
+                continue
+            tracks = [t for t in tracks if isinstance(t, dict) and t.get('id')][:15]
+            if not tracks:
+                continue
+            try:
+                self._enqueue(tracks[0], 'autoplay', '本鲸', source='auto')
+            except (DuplicateSongError, ValueError):
+                continue
+            self.save()
+            return
+
+    def _enqueue(self, track, user_id, nickname, source='viewer'):
         limits = self.rulebook.snapshot()['music']
         self._check_capacity(user_id, limits)
         track_id = str(track['id'])
@@ -330,7 +417,8 @@ class MusicService:
         if cooldown and any(str(item['track']['id']) == track_id and item.get('finished_at') is not None and self.clock()-item['finished_at'] < cooldown for item in self.recent):
             raise ValueError('这首歌刚放过，'+str(cooldown)+'秒内不重复点播，换一首吧')
         item = {'id': uuid.uuid4().hex, 'track': track, 'user_id': str(user_id),
-                'nickname': str(nickname)[:40], 'state': 'waiting', 'created': self.clock()}
+                'nickname': str(nickname)[:40], 'state': 'waiting', 'created': self.clock(),
+                'source': 'auto' if source == 'auto' else 'viewer'}
         self.queue.append(item)
         self.save()
         return {'status': 'queued', 'item': item, 'position': len(self.queue), 'queue_count': len(self.queue),
@@ -343,7 +431,8 @@ class MusicService:
                 snapshot = self.bridge.snapshot
                 actual = str((snapshot.get('current') or {}).get('id', ''))
                 native_next = str((snapshot.get('next') or {}).get('id', ''))
-                if any(t['state'] != 'waiting' and not (
+                # Free-play entries are ours to drop, so they never block a start.
+                if any(t['state'] != 'waiting' and t.get('source') != 'auto' and not (
                         actual == str(t['track']['id']) or
                         (t['state'] == 'staged' and t.get('native_outcome') == 'verified' and native_next == str(t['track']['id']))) for t in self.queue):
                     raise ValueError('存在已交给网易云的歌曲，请核对当前播放后移除该项，再开始')
@@ -408,9 +497,20 @@ class MusicService:
                 if snapshot.get('connected') and playing_id and self.current and playing_id != str(self.current['track']['id']):
                     self._finish_current()
                     self.save()
+                # Free play comes back on its own once the player is reachable
+                # again; a viewer's queue still waits for the operator.
+                if (snapshot.get('connected') and not self.queue and not self.error
+                        and self.rulebook.snapshot()['music'].get('autoplay_enabled')):
+                    self.enabled, self.keep_alive_at = True, self.clock()
                 return
             snapshot = self.bridge.request('probe', timeout=10)
+            if snapshot.get('connected') and self.error and '断开' in self.error:
+                self.error = ''  # the player came back; no stale warning on screen
             if not snapshot.get('connected'):
+                # Free play simply waits for the player; only a viewer request
+                # should surface "断开" as an error worth showing on screen.
+                if not self.queue and self.rulebook.snapshot()['music'].get('autoplay_enabled'):
+                    return
                 raise RuntimeError('网易云已断开，点歌队列保留')
             playing_id = str((snapshot.get('current') or {}).get('id', ''))
             if self.queue and playing_id == str(self.queue[0]['track']['id']):
@@ -422,12 +522,22 @@ class MusicService:
                 self.deadline = 0
                 self.save()
             if not self.queue:
+                self._keep_playing(snapshot)
                 if self.current and playing_id != str(self.current['track']['id']):
                     self._finish_current()
-                    self.enabled = False
+                    # With free play on, an empty queue means "nobody asked for
+                    # anything right now", not "stop the music".
+                    if not self.queue and not self.rulebook.snapshot()['music'].get('autoplay_enabled'):
+                        self.enabled = False
                     self.save()
                 return
             head = self.queue[0]
+            if head['state'] == 'waiting' and self._should_switch_now(head, snapshot):
+                # A viewer asked for this song: switch to it now instead of
+                # parking it behind whatever the player happens to be playing.
+                self.deadline = time.monotonic()+25
+                self._execute_once('PlaySelected', head)
+                return
             if head['state'] == 'activating':
                 if time.monotonic() > self.deadline:
                     raise RuntimeError('点歌未在25秒内成为当前曲目；可能无法播放，需人工核对')
@@ -501,6 +611,10 @@ class MusicService:
                 # NetEase InsertNext already arms its native next-song guard.
 
     def run(self):
+        # Free play: the room starts playing on its own, without a first request.
+        if self.rulebook.snapshot()['music'].get('autoplay_enabled'):
+            self.enabled = True
+            self.keep_alive_at = 0
         def loop():
             while not self.stop_event.is_set():
                 self.wake_event.wait(2)

@@ -38,7 +38,7 @@
     const row=el('div','music-song'+(i===0?' music-song-first':''));row.setAttribute('role','listitem');row.dataset.id=item.id;
     const rank=el('span','music-song-rank',String(i+1).padStart(2,'0'));
     const body=el('div','music-song-body'),title=el('div','music-song-title',item.track?.title||'未知歌曲');
-    const detail=el('div','music-song-detail');detail.append(el('span','music-song-artist',item.track?.artist||'未知歌手'),el('span','music-song-viewer',(item.nickname||'观众')+' 点播'));
+    const detail=el('div','music-song-detail');detail.append(el('span','music-song-artist',item.track?.artist||'未知歌手'),el('span','music-song-viewer',item.source==='auto'?'我自己放的':(item.nickname||'观众')+' 点播'));
     body.append(title,detail);row.append(rank,body);row.title=title.textContent+' · '+detail.textContent;this.cycle.append(row);
    });
    this.list.scrollTop=oldTop;this.offset=oldTop;this.lastWritten=this.list.scrollTop;this.holdUntil=performance.now()+1500;this.measure();

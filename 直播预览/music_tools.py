@@ -69,7 +69,10 @@ class MusicToolSession:
                     'handoff_waiting_seconds': round(handoff_waiting_seconds),
                     'player_connected': bool(player.get('connected')), 'observed_at': player.get('observedAt'),
                     'queue_count_excludes_current': True,
-                    'queued_songs': [{'position': i, 'track': public_track(v['track']), 'nickname': v['nickname']} for i,v in enumerate(music.queue,1)],
+                    'switches_now': bool(limits.get('request_switches_now')),
+                    'autoplay_enabled': bool(limits.get('autoplay_enabled')),
+                    'queued_songs': [{'position': i, 'track': public_track(v['track']), 'nickname': v['nickname'],
+                                      'auto': v.get('source') == 'auto'} for i,v in enumerate(music.queue,1)],
                     'my_queue_limit': limits['max_pending_per_user'],
                     'music_automatically_prepared_on_request': True}
 

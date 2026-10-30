@@ -16,13 +16,13 @@ test('Rolling board shows all waiting songs and preserves rows across polling',a
    view.update(payload);
   });
   assert.equal(await page.locator('.music-roll-cycle .music-song').count(),12);
-  assert.equal(await page.locator('#heading').innerText(),'点歌滚榜 · 待播 12 / 12 首');
+  assert.equal(await page.locator('#heading').innerText(),'12 首');
   assert.equal(await page.locator('.music-song-title').last().innerText(),'歌曲11');
   assert.equal(await page.locator('.music-song-rank').last().innerText(),'12');
   assert.ok((await page.locator('.music-next').innerText()).includes('网易云实际下一首'));
   assert.equal(await page.evaluate(()=>{const original=view.cycle.firstElementChild;view.update(payload);return original===view.cycle.firstElementChild;}),true);
   await page.evaluate(()=>view.update({...payload,queue:[]}));
-  assert.equal(await page.locator('#heading').innerText(),'点歌滚榜 · 待播 0 / 12 首');
+  assert.equal(await page.locator('#heading').innerText(),'0 首');
   assert.ok((await page.locator('.music-empty').innerText()).includes('下一首好歌'));
  }finally{await browser.close();}
 });

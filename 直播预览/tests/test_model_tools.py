@@ -44,8 +44,9 @@ class ToolTests(unittest.TestCase):
         self.assertTrue(self.music.wake_event.is_set())
         self.music.tick()
         commands = [d['command'] for a, d in self.bridge.calls if a == 'execute']
-        self.assertEqual(commands, ['InsertNext'])
-        self.assertEqual(self.bridge.snapshot['current']['id'], 'original')
+        # A viewer asked for it, so it plays now instead of waiting its turn.
+        self.assertEqual(commands, ['PlaySelected'])
+        self.assertEqual(self.bridge.snapshot['current']['id'], '1000001')
 
     def test_unavailable_player_returns_error_without_queueing(self):
         self.bridge.snapshot['connected'] = False

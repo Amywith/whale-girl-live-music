@@ -101,6 +101,8 @@ class QueueContextTests(unittest.TestCase):
         self.assertEqual(self.session('third').context()['queued_songs'][0]['track']['title'], '晴天')
 
     def test_observer_removes_actually_started_song_even_when_scheduler_is_paused(self):
+        book = RuleConfig(self.root); book.data['music']['autoplay_enabled'] = False
+        self.music.rulebook = book
         self.music.order('晴天')
         self.bridge.snapshot['current'] = self.bridge.tracks[0]
         self.music.tick()
