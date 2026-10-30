@@ -4,6 +4,7 @@
  class FeedView{
   constructor(root,conversation){
    this.root=root;this.conversation=conversation;this.signature=null;this.content=root;
+   if(!root)return;
    if(root.classList.contains('ticker-feed')){
     this.track=document.createElement('div');this.track.className='incoming-track';
     this.content=document.createElement('div');this.content.className='incoming-cycle';this.track.append(this.content);root.replaceChildren(this.track);
@@ -24,6 +25,7 @@
    this.offset=(this.offset+dt*26)%this.cycleWidth;this.root.scrollLeft=this.offset;this.lastWritten=this.root.scrollLeft;
   }
   update(items){
+   if(!this.root)return;
    items=items.map(item=>item.role==='assistant'?{...item,content:cleanReply(item.content)}:item);
    if(this.conversation)items=items.filter(item=>!(item.type==='video'&&item.role==='user'&&item.content.startsWith('正在看：')));
    if(this.track)items=items.slice(-8);
@@ -37,7 +39,7 @@
     node=document.createElement('div');node.dataset.id=item.id;node.dataset.signature=encoded;
     node.className=this.conversation?'conversation-row '+item.role:'message'+(item.type==='gift'?' gift':'');
     const head=document.createElement('div');head.className='message-head';
-    const name=document.createElement('b');name.textContent=item.role==='assistant'?'爱吃蛋包饭的大肥鱼':item.type==='video'?'画面观察':item.name;head.append(name);
+    const name=document.createElement('b');name.textContent=item.role==='assistant'?'肥波':item.type==='video'?'画面观察':item.name;head.append(name);
     if(!this.conversation){const time=document.createElement('time');time.textContent=new Date(item.time*1000).toLocaleTimeString('zh-CN',{hour12:false});head.append(time);}
     const content=document.createElement('div');content.className='message-content';content.textContent=item.content;
     node.append(head,content);return node;

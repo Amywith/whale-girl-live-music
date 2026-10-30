@@ -32,7 +32,7 @@ RUNTIME.mkdir(exist_ok=True)
 AUDIO = ROOT / 'audio'
 AUDIO.mkdir(exist_ok=True)
 LOCK = threading.Lock()
-CODEX = shutil.which('codex')
+CODEX = shutil.which('codex') or (str(p) if (p := Path(r'D:\Tools\node22\codex.cmd')).exists() else None)
 HISTORY = []
 CONFIG = json.loads((ROOT / 'local-config.json').read_text(encoding='utf-8'))
 
@@ -196,6 +196,145 @@ def clear_session_queues():
     finally:
         LOCK.release()
 
+def pvz_target():
+    """Locate the running PvZ2 Gardendless page via its WebView2 CDP port (bypass system proxy).
+    Returns the BROWSER-level ws + page targetId: page-level ws allows only one client,
+    so the watchdog and the preview page would keep kicking each other off."""
+    import urllib.request
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        pages = json.loads(opener.open('http://127.0.0.1:9222/json', timeout=1.5).read())
+        page = None
+        for item in pages:
+            if item.get('type') == 'page' and item.get('url', '').rstrip('/') == 'http://tauri.localhost':
+                page = item
+                break
+        if not page:
+            return {'ok': False, 'pages': [{'title': p.get('title', ''), 'url': p.get('url', '')} for p in pages if p.get('type') == 'page']}
+        ver = json.loads(opener.open('http://127.0.0.1:9222/json/version', timeout=1.5).read())
+        return {'ok': True, 'ws': ver.get('webSocketDebuggerUrl', ''), 'targetId': page.get('id', ''), 'title': page.get('title', '')}
+    except Exception as error:
+        return {'ok': False, 'error': str(error)}
+
+
+PVZ_TOOLS = {
+    'node': Path(r'D:\Tools\node22\node.exe'),
+    'watchdog': Path(r'D:\pvz2-garden\loop_watchdog.mjs'),
+    'launcher': Path(r'D:\pvz2-garden\ai-bundle\PvZAI-发布包\PvZAI_Launcher.exe'),
+}
+PVZ = {'proc': None, 'state': 'idle', 'message': '', 'since': 0.0, 'gen': 0}
+PVZ_LOCK = threading.Lock()
+
+def pvz_clean_env():
+    """清掉大小写重复的代理变量（会导致官方启动器崩溃），并绕过系统代理访问本机。"""
+    env = os.environ.copy()
+    for key in list(env):
+        if key.lower() in ('https_proxy', 'http_proxy', 'all_proxy'):
+            env.pop(key, None)
+    return env
+
+def pvz_port_open():
+    try:
+        with socket.create_connection(('127.0.0.1', 9222), timeout=1.5):
+            return True
+    except OSError:
+        return False
+
+def pvz_watchdog_log(limit=6):
+    try:
+        return (RUNTIME / 'pvz-watchdog.log').read_text(encoding='utf-8', errors='replace').splitlines()[-limit:]
+    except OSError:
+        return []
+
+def _pvz_launch_flow(gen):
+    try:
+        if not pvz_port_open():
+            if not PVZ_TOOLS['launcher'].exists():
+                with PVZ_LOCK:
+                    PVZ['state'], PVZ['message'] = 'error', '找不到游戏启动器 ' + str(PVZ_TOOLS['launcher'])
+                return
+            with PVZ_LOCK:
+                PVZ['message'] = '正在启动游戏（PvZAI_Launcher）…'
+            subprocess.Popen([str(PVZ_TOOLS['launcher'])], cwd=str(PVZ_TOOLS['launcher'].parent), env=pvz_clean_env(),
+                             stdout=open(RUNTIME / 'pvz-launcher.log', 'a', encoding='utf-8'), stderr=subprocess.STDOUT,
+                             creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
+            deadline = time.time() + 180
+            while not pvz_port_open():
+                if time.time() > deadline:
+                    with PVZ_LOCK:
+                        if PVZ['gen'] == gen:
+                            PVZ['state'], PVZ['message'] = 'error', '180 秒内游戏调试端口(9222)未就绪，请确认游戏窗口已弹出'
+                    return
+                time.sleep(2)
+                if PVZ['gen'] != gen:
+                    return
+        if not (PVZ_TOOLS['node'].exists() and PVZ_TOOLS['watchdog'].exists()):
+            with PVZ_LOCK:
+                PVZ['state'], PVZ['message'] = 'error', '缺少 node.exe 或 loop_watchdog.mjs'
+            return
+        with PVZ_LOCK:
+            if PVZ['gen'] != gen:
+                return
+            PVZ['message'] = '游戏就绪，挂载循环看门狗…'
+            logf = open(RUNTIME / 'pvz-watchdog.log', 'a', encoding='utf-8')
+            PVZ['proc'] = subprocess.Popen([str(PVZ_TOOLS['node']), str(PVZ_TOOLS['watchdog']), 'Cocos'],
+                                           cwd=str(PVZ_TOOLS['watchdog'].parent), env=pvz_clean_env(),
+                                           stdout=logf, stderr=subprocess.STDOUT)
+        time.sleep(3)
+        with PVZ_LOCK:
+            if PVZ['gen'] != gen:
+                return
+            if PVZ['proc'] and PVZ['proc'].poll() is not None:
+                PVZ['state'], PVZ['message'] = 'error', '看门狗启动后立即退出，请查看日志'
+                return
+            PVZ['state'], PVZ['message'], PVZ['since'] = 'running', '循环运行中：自动进关，打完自动续关', time.time()
+    except Exception as exc:
+        with PVZ_LOCK:
+            PVZ['state'], PVZ['message'] = 'error', str(exc)[:300]
+
+def pvz_loop_start():
+    with PVZ_LOCK:
+        proc = PVZ['proc']
+        if proc and proc.poll() is None:
+            return {'message': '循环自玩已在运行', 'state': PVZ['state']}
+        PVZ['gen'] += 1
+        gen = PVZ['gen']
+        PVZ['state'], PVZ['message'], PVZ['since'] = 'launching', '准备启动…', time.time()
+        threading.Thread(target=_pvz_launch_flow, args=(gen,), name='pvz-loop', daemon=True).start()
+    return {'message': '启动中：游戏未开会先开游戏，然后自动挂循环看门狗', 'state': 'launching'}
+
+def pvz_loop_stop(close_game=False):
+    with PVZ_LOCK:
+        PVZ['gen'] += 1
+        stopped = []
+        proc = PVZ['proc']
+        if proc and proc.poll() is None:
+            try:
+                proc.kill()
+                stopped.append('循环看门狗')
+            except OSError:
+                pass
+        PVZ['proc'] = None
+        PVZ['state'], PVZ['message'] = 'idle', '已停止' if stopped else '本来就没在运行'
+    if close_game:
+        game = subprocess.run(['taskkill', '/F', '/IM', 'pvzge-0.16.1.exe'], capture_output=True)
+        subprocess.run(['taskkill', '/F', '/IM', 'PvZAI_Launcher.exe'], capture_output=True)
+        if game.returncode == 0:
+            stopped.append('游戏')
+            with PVZ_LOCK:
+                PVZ['message'] = '已停止：' + '、'.join(stopped)
+    return {'message': PVZ['message'], 'stopped': stopped, 'state': PVZ['state']}
+
+def pvz_loop_status():
+    with PVZ_LOCK:
+        proc = PVZ['proc']
+        running = bool(proc and proc.poll() is None)
+        if not running and PVZ['state'] == 'running':
+            PVZ['state'], PVZ['message'] = 'idle', '看门狗已退出'
+        return {'state': PVZ['state'], 'message': PVZ['message'], 'watchdog_running': running,
+                'game_ready': pvz_port_open(), 'log': pvz_watchdog_log(), 'since': PVZ['since']}
+
+
 class Handler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
@@ -219,6 +358,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(403, {'error': '仅允许本机访问'})
         if path == '/api/time':
             return self.reply(200, beijing_time())
+        if path == '/api/pvz/target':
+            return self.reply(200, pvz_target())
+        if path == '/api/pvz/loop/status':
+            return self.reply(200, pvz_loop_status())
         if path == '/api/debug/turns':
             result = MODELS.debug.index()
             return self.reply(200, result)
@@ -236,6 +379,11 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith('/assets/live2d/'):
             target = (ROOT / path.lstrip('/')).resolve()
             if target.is_relative_to((ROOT / 'assets/live2d').resolve()) and target.suffix in ('.json', '.png', '.moc3', '.js') and target.is_file():
+                return super().do_GET()
+            return self.send_error(404)
+        if path.startswith('/assets/gift_icons/'):
+            target = (ROOT / path.lstrip('/')).resolve()
+            if target.is_relative_to((ROOT / 'assets/gift_icons').resolve()) and target.suffix == '.png' and target.is_file():
                 return super().do_GET()
             return self.send_error(404)
         if path not in ('/', '/index.html', '/debug.html', '/debug.js', '/debug.css', '/live.js', '/studio.js', '/music_queue.js', '/live_view.css', '/live_view.js', '/avatar.css', '/presentation.js', '/voice_player.js', '/character.png', '/favicon.ico', '/assets/gift_audio/meow_paw.mp3', '/assets/gift_audio/meow_paw.wav', '/assets/gift_audio/meow_paw.ogg') and (not (path.startswith('/audio/') and path.endswith('.mp3') and (path.count('/') == 2))):
@@ -266,7 +414,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.reply(200, {'message': '后台正在停止；聊天、统计和配置保留'})
             threading.Thread(target=self.server.shutdown, name='local-shutdown', daemon=True).start()
             return
-        if path.startswith(('/api/music/', '/api/studio/', '/api/douyin/')):
+        if path.startswith(('/api/music/', '/api/studio/', '/api/douyin/', '/api/pvz/')):
             try:
                 if path == '/api/music/connect':
                     result = MUSIC.connect()
@@ -304,6 +452,10 @@ class Handler(SimpleHTTPRequestHandler):
                     result = VISUALS.idle()
                 elif path == '/api/studio/theme':
                     result = VISUALS.set_theme(data.get('mode'))
+                elif path == '/api/pvz/loop/start':
+                    result = pvz_loop_start()
+                elif path == '/api/pvz/loop/stop':
+                    result = pvz_loop_stop(bool(data.get('close_game')))
                 elif path == '/api/douyin/connect':
                     result = DOUYIN.connect(data.get('room_id'), data.get('cookie', ''))
                     if not RULES.yaml_mode:

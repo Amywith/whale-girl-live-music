@@ -14,7 +14,7 @@
  <details><summary>最近事件</summary><div id="eventLog"></div></details>
  <p class="note" id="musicState" role="status" hidden></p><p id="integrationNotice" class="note" role="status"></p>`;
  panel.append(box);
- const style=document.createElement('style');style.textContent='.integrations h2{font-size:18px;margin:28px 0 8px}.integrations h2:first-child{margin-top:0}.integrations details{margin:15px 0;color:#a9c1de;font-size:13px}.integrations summary{cursor:pointer}.inline-fields{display:flex;gap:12px}.inline-fields>div{flex:1;min-width:0}.integration-row{padding:10px 0;border-bottom:1px solid #2b3d57;font-size:13px;line-height:1.7}.integration-row button{padding:5px 10px;font-size:12px;margin:5px 6px 0 0}#eventLog{max-height:260px;overflow:auto;font-size:12px;line-height:1.8}.integrations button:disabled{opacity:.5;cursor:wait}';document.head.append(style);
+ const style=document.createElement('style');style.textContent='.integrations h2{font-size:18px;margin:28px 0 8px}.integrations h2:first-child{margin-top:0}.integrations details{margin:15px 0;color:#a9c1de;font-size:13px}.integrations summary{cursor:pointer}.inline-fields{display:flex;gap:12px}.inline-fields>div{flex:1;min-width:0}.integration-row{padding:10px 0;border-bottom:1px solid #2b3d57;font-size:13px;line-height:1.7}.integration-row button{padding:5px 10px;font-size:12px;margin:5px 6px 0 0}#eventLog{max-height:260px;overflow:auto;font-size:12px;line-height:1.8}.integrations button:disabled{opacity:.5;cursor:wait}.pvz-loop-panel details{margin:12px 0}.pvz-loop-panel pre{max-height:220px;overflow:auto;font-size:12px;line-height:1.7;color:#9fc7ea;background:#0a1526;border:1px solid #2d405d;border-radius:8px;padding:10px;margin:8px 0 0;white-space:pre-wrap}';document.head.append(style);
  let playing=false,polling=false,claiming=false,viewPolling=false,ack=null,ackFailed=false;
  const clientId=crypto.randomUUID();
  const voicePlayer=new VoicePlayer(audio);
@@ -36,6 +36,26 @@
  }
  $('stageThemeToggle').onclick=()=>changeTheme(effectiveTheme==='day'?'night':'day');
  $('stageThemeAuto').onclick=()=>changeTheme('auto');
+ // ── PvZ 循环自玩：开游戏 + 挂循环看门狗（本地策略，零成本挂机） ──
+ const pvzPanel=document.createElement('div');pvzPanel.className='controls pvz-loop-panel';
+ pvzPanel.innerHTML='<b>🎮 PvZ 循环自玩</b><p class="note" id="pvzLoopState">正在读取…</p><div class="buttons"><button id="pvzLoopStart">▶ 启动循环</button><button id="pvzLoopStop">■ 停止循环</button><button id="pvzLoopClose" title="停止看门狗并关闭游戏">■ 停止并关游戏</button></div><p class="note">启动后自动开游戏（若未开）并挂循环看门狗：自动进关、本地策略自己玩、打完自动续关，无限循环不调模型。</p><details><summary>看门狗日志</summary><pre id="pvzLoopLog"></pre></details>';
+ themePanel.after(pvzPanel);
+ function renderPvz(s){
+  const map={idle:'未运行',launching:'启动中…',running:'循环运行中',error:'出错'};
+  const el=$('pvzLoopState');
+  el.textContent='● '+(map[s.state]||s.state)+(s.message?' · '+s.message:'')+(s.game_ready?' · 游戏已就绪':' · 游戏未启动');
+  el.style.color=s.state==='error'?'#ffb3ae':s.state==='running'?'#9fe6b0':'#a9c9ec';
+  $('pvzLoopStart').disabled=s.state==='launching';
+  $('pvzLoopStop').disabled=s.state==='idle';
+  $('pvzLoopClose').disabled=s.state==='idle';
+  $('pvzLoopLog').textContent=(s.log||[]).join('\n')||'（暂无日志）';
+ }
+ let pvzPolling=false;
+ async function pvzPoll(){if(pvzPolling)return;pvzPolling=true;try{const r=await fetch('/api/pvz/loop/status');if(r.ok)renderPvz(await r.json());}catch(_){}finally{pvzPolling=false;}}
+ $('pvzLoopStart').onclick=async()=>{const b=$('pvzLoopStart');b.disabled=true;$('pvzLoopState').textContent='● 启动中… 游戏若未开会先开游戏（约 20-60 秒）';try{await post('/api/pvz/loop/start',{});}catch(e){notice(e.message,true);}finally{b.disabled=false;}pvzPoll();};
+ $('pvzLoopStop').onclick=async()=>{try{const d=await post('/api/pvz/loop/stop',{});$('pvzLoopState').textContent='● '+d.message;}catch(e){notice(e.message,true);}pvzPoll();};
+ $('pvzLoopClose').onclick=async()=>{if(!confirm('停止循环并关闭 PvZ 游戏？'))return;try{const d=await post('/api/pvz/loop/stop',{close_game:true});$('pvzLoopState').textContent='● '+d.message;}catch(e){notice(e.message,true);}pvzPoll();};
+ setInterval(pvzPoll,5000);pvzPoll();
  let playbackEpoch=null;
  let serverAudioWarning=false;
  function syncPlaybackEpoch(epoch){
@@ -50,10 +70,10 @@
   // 浏览器自动播放策略：页面未获得点击前不许出声。观众视角看不到后台提示，这里补一个可见入口。
   let everPlayed=false;
   const audioPrompt=document.createElement('div');
-  audioPrompt.className='audio-unlock';audioPrompt.textContent='🔊 点一下开启声音';
+  audioPrompt.className='audio-unlock';audioPrompt.textContent='';
   document.querySelector('.stage').append(audioPrompt);
   const autoplayAllowed=()=>{try{return !!(navigator.getAutoplayPolicy&&navigator.getAutoplayPolicy('mediaelement')==='allowed');}catch(_){return false;}};
-  const syncAudioPrompt=()=>{audioPrompt.hidden=!(document.documentElement.classList.contains('audience-view')&&!hasGesture&&!everPlayed&&!autoplayAllowed());};
+  const syncAudioPrompt=()=>{audioPrompt.hidden=true;};
   document.addEventListener('pointerdown',event=>{
    if(!event.isTrusted)return;
    hasGesture=true;voicePlayer.unlock();audioPrompt.hidden=true;
@@ -78,7 +98,7 @@
  $('gift').textContent='🎁 模拟礼物（使用下方配置）';$('gift').onclick=()=>$('simulateGift').click();
  document.querySelector('label[for="comment"]').textContent='模拟观众弹幕（聊天、点歌都在这里说）';
  function row(text){const el=document.createElement('div');el.className='integration-row';el.textContent=text;return el;}
- const musicQueueView=new MusicQueueView($('songs'),document.querySelector('.queue small'));
+ const musicQueueView=new MusicQueueView($('songs'),document.getElementById('queueCount'));
  const presentationView=new PresentationView($('conversation'),$('chat'),$('bubble'));
  async function refreshPresentation(){if(viewPolling)return;viewPolling=true;try{const r=await fetch('/api/studio/presentation');if(!r.ok)throw Error('画面同步失败');const d=await r.json();presentationView.update(d.presentation);if(d.visual)document.dispatchEvent(new CustomEvent('whale-visual',{detail:d.visual}));}catch(e){notice(e.message,true);}finally{viewPolling=false;}}
  $('clear').onclick=async()=>{try{presentationView.update(await post('/api/studio/presentation/clear',{}));notice('所有画面的显示记录已清空');}catch(e){notice(e.message,true);}};
@@ -95,13 +115,25 @@
   const today=income.today[preview?'simulation':'live'];
   const rate=policy.yuan_per_diamond??0.05;
   const yuan=value=>(value*rate).toFixed(2);
-  $('incomeLabel').textContent='今日收入';
-  $('incomeToday').textContent=yuan(today.coins);
+  const incomeTodayEl=$('incomeToday');if(incomeTodayEl){incomeTodayEl.textContent=yuan(today.coins);incomeTodayEl.title=income.day+' 礼物总值 '+today.coins.toLocaleString()+' 钻石 × '+rate+' 元；预计到账，实际以平台结算为准';}
   const spent=expenses.estimated_yuan||0;
-  $('expenseToday').textContent='¥'+spent.toFixed(3);
-  $('incomeNet').textContent='¥'+(today.coins*rate-spent).toFixed(2);
-  $('tokenToday').textContent=(expenses.tokens||0).toLocaleString();
-  $('incomeToday').title=income.day+' 礼物总值 '+today.coins.toLocaleString()+' 钻石 × '+rate+' 元；预计到账，实际以平台结算为准';
+  const expenseTodayEl=$('expenseToday');if(expenseTodayEl)expenseTodayEl.textContent='¥'+spent.toFixed(3);
+  const incomeNetEl=$('incomeNet');if(incomeNetEl)incomeNetEl.textContent='¥'+(today.coins*rate-spent).toFixed(2);
+  const token=$('tokenToday');if(token)token.textContent=(expenses.tokens||0).toLocaleString();
+  const foot=$('ledgerFoot');if(foot)foot.textContent=(today.coins||0).toLocaleString()+' 音浪 · '+(today.gift_count||0)+' 份礼物';
+ }
+ function renderFeeders(list){
+  const ol=document.getElementById('feedRank');if(!ol)return;
+  const items=(list||[]).filter(e=>e&&e.coins>0).slice(0,6);
+  if(!items.length){ol.innerHTML='<li class="dim">还没有投喂，快来当榜一</li>';return;}
+  ol.innerHTML='';
+  items.forEach((e,i)=>{
+   const li=document.createElement('li');
+   const rank=document.createElement('span');rank.className='rank r'+(i+1);rank.textContent=String(i+1);
+   const name=document.createElement('b');name.textContent=e.name||'匿名观众';
+   const coins=document.createElement('em');coins.textContent=(e.coins||0).toLocaleString()+' 音浪';
+   li.append(rank,name,coins);ol.append(li);
+  });
  }
  async function refresh(){
   if(polling)return;polling=true;
@@ -110,6 +142,7 @@
    if(!syncPlaybackEpoch(d.studio.playback_epoch))return;
    renderGiftPrices(d.studio.simulation_gift_prices);renderIncome(d.studio.income,d.douyin,d.visual?.income,d.expenses);
    if(d.models)renderProvider(d.models);if(d.policy)renderPolicy(d.policy);renderTheme(d.visual);
+   renderFeeders(d.studio.feeders);
    serverAudioWarning=!!d.studio.audio_warning;
     $('retryReplies').hidden=!(d.studio.playback_blocked||d.studio.error||d.studio.audio_warning||d.studio.voice_retries);if(!playing)busy(d.studio.processing);
    if(d.studio.audio_warning)notice(d.studio.audio_warning+'；文字回复继续，可点击“恢复／重试语音”',true);
@@ -117,7 +150,7 @@
    $('studioState').textContent=(d.studio.playback_blocked?'语音播放中断，请点击重试播放':d.studio.chat_selection==='window_random'?'真实弹幕：最近 '+d.studio.chat_window_size+' 人随机选一条，礼物优先':'弹幕按队列回复')+' · 待处理 '+d.studio.pending+' 条 · 合并中的礼物 '+d.studio.combos+' 组'+(d.studio.error?' · '+d.studio.error:'');
    const counts=d.douyin.event_counts||{};
    $('douyinState').textContent='状态：'+d.douyin.state+(d.douyin.room_id?' · 房间 '+d.douyin.room_id:'')+(d.douyin.login_configured===false?' · 未设置网页登录，可能漏掉礼物':d.douyin.login_configured===true?' · 已设置登录 Cookie（有效性待实收验证）':'')+' · 收到弹幕 '+(counts.chat||0)+' / 礼物 '+(counts.gift||0)+' / 进场 '+(counts.member||0)+(d.douyin.error?' · '+d.douyin.error:'');
-   $('feedConnection').textContent=d.douyin.room_id?'抖音 · '+d.douyin.room_id:'未连接抖音';
+   const feedConn=$('feedConnection');if(feedConn)feedConn.textContent=d.douyin.room_id?'抖音 · '+d.douyin.room_id:'未连接抖音';
    document.querySelector('header small').textContent='本地管理 / 抖音 '+d.douyin.state;
    $('giftTiers').textContent='感谢分档（整组总价）：'+d.studio.tiers.map(t=>t.min_diamonds+'钻石起：'+t.name).join('；')+'。可在 '+(d.studio.config_file||'直播规则.yaml')+' 调整。';
    $('meowAsset').textContent=d.studio.meow_clip?'喵喵爪：晓伊感谢＋本地喵叫音效':'喵喵爪：晓伊念完整文案；表哥原声音效尚未放入。';
@@ -130,5 +163,18 @@
  document.querySelector('.panel>p').textContent='以直播画面为准。左侧聊天簿显示已回应的对话，底部滚动显示弹幕与礼物；预览与直播页同步。';
  const notes=document.querySelectorAll('.panel>p.note');if(notes.length>1)notes[1].textContent='聊天、点歌都直接发弹幕。点歌工具自动准备网易云；抖音直播时填写房间号即可。大肥鱼已接入真实 Live2D，可通过弹幕与礼物改变。';
  $('voiceEnabled').onchange=()=>{void claim($('voiceEnabled').checked);};
- document.addEventListener('studio-event-submitted',()=>{void refreshPresentation();void claim();});setInterval(refresh,2000);setInterval(refreshPresentation,400);setInterval(claim,250);refresh();refreshPresentation();claim();
+ document.addEventListener('studio-event-submitted',()=>{void refreshPresentation();void claim();});
+ refresh();refreshPresentation();claim();
+ /* 轮询放 Web Worker：Chrome 会把后台标签页的主线程定时器压到每分钟一次，
+    导致回复生成好了也要等近一分钟才被取走播放；Worker 定时器不受此节流。 */
+ (function(){
+   let n=0;
+   const tick=()=>{n++;claim();if(n%2===0)void refreshPresentation();if(n%8===0)void refresh();};
+   try{
+     const src='let t=null;onmessage=e=>{if(e.data===1&&!t){t=setInterval(()=>postMessage(1),250);}};';
+     const worker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+     worker.onmessage=()=>tick();
+     worker.postMessage(1);
+   }catch(_){setInterval(tick,250);}
+ })();
 })();

@@ -25,15 +25,19 @@ class BeijingClockTests(unittest.TestCase):
         stamp = datetime(2026, 10, 28, 23, 59, 59, tzinfo=timezone.utc).timestamp()
         for name in ('codex', 'deepseek'):
             with self.subTest(provider=name), tempfile.TemporaryDirectory() as folder:
+                calls = []
+                def chat_side_effect(*args, **kwargs):
+                    calls.append(1)
+                    return {'reply': '好呀' if len(calls) == 1 else '好呀好呀'}
                 resident = SimpleNamespace(executable='unused', reset=Mock(),
-                    chat=Mock(return_value={'reply': '好呀'}))
+                    chat=Mock(side_effect=chat_side_effect))
                 manager = ProviderManager(resident, Path(folder), {'provider': name})
                 persona = manager.adapters[name].persona_provider()
                 captured = []
 
                 def fake_stream(body, *args):
                     captured.append(json.loads(json.loads(body['messages'][-1]['content'])['message']))
-                    return {'role': 'assistant', 'content': '好呀'}, 1, None
+                    return {'role': 'assistant', 'content': '好呀' if len(captured) == 1 else '好呀好呀'}, 1, None
 
                 deepseek = manager.adapters['deepseek']
                 with patch.object(deepseek, 'key', return_value='offline'), \

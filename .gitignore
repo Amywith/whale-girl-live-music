@@ -23,3 +23,10 @@ auth.json
 !**/vendor/netease/README.md
 
 # Live2D model, expressions, motions and stage images ARE part of this release.
+
+# 体积大且代码未引用的备选美术素材 / 临时备份，不随仓库分发
+直播预览/assets/live2d/stage/backup-original/
+直播预览/assets/live2d/stage/动漫游戏直播背景图_*.png
+直播预览/assets/live2d/stage/竖版_9_16_*.png
+直播预览/assets/skins/
+*.bak-*

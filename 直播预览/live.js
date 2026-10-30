@@ -17,13 +17,13 @@ const tools=document.createElement('div');
 tools.innerHTML='<label><input type="checkbox" id="voiceEnabled" checked style="width:auto"> 播放晓伊原声</label><button id="resetSession">清空对话上下文</button><p id="metrics" class="note">等待测试</p><audio id="replyAudio" controls style="width:100%"></audio><label>最近测试对比</label><div id="comparisons" style="overflow-x:auto"></div>';
 controls.append(tools);
 const audio=document.getElementById('replyAudio');
-let inFlight=false,ticker,started,selectedProvider='',modelName='';
+let inFlight=false,ticker,started,selectedProvider='',modelName='',availableProviders=[];
 const measurements=[];
 const providerToggle=document.getElementById('providerToggle');
 function busy(value){inFlight=value;providerToggle.disabled=value||!selectedProvider;document.getElementById('resetSession').disabled=value;}
-function renderProvider(data){selectedProvider=data.provider;modelName=data.model;document.getElementById('modelState').textContent='当前：'+modelName;providerToggle.setAttribute('aria-checked',String(selectedProvider==='deepseek'));providerToggle.setAttribute('aria-label',selectedProvider==='codex'?'切换到 DeepSeek':'切换到 Codex');providerToggle.disabled=inFlight;}
+function renderProvider(data){selectedProvider=data.provider;modelName=data.model;if(Array.isArray(data.providers))availableProviders=data.providers.filter(p=>p.configured).map(p=>p.id);const canSwitch=availableProviders.length>1;document.getElementById('modelState').textContent='当前：'+modelName+(canSwitch?'':' · 唯一可用');providerToggle.setAttribute('aria-checked',String(selectedProvider!=='codex'));providerToggle.setAttribute('aria-label',canSwitch?'切换模型供应商，当前 '+selectedProvider:'当前唯一已配置的供应商 '+selectedProvider);providerToggle.disabled=inFlight||!canSwitch;}
 async function post(path,data){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw Error(result.error||'请求失败');return result;}
-providerToggle.onclick=async()=>{if(inFlight||!selectedProvider)return;const next=selectedProvider==='codex'?'deepseek':'codex';busy(true);try{const data=await post('/api/provider',{provider:next});renderProvider(data);audio.pause();statusBox.textContent='● 已切换到 '+data.model+' · 保留近期聊天';}catch(err){statusBox.textContent='切换失败：'+err.message;}finally{busy(false);}};
+providerToggle.onclick=async()=>{if(inFlight||!selectedProvider)return;const order=availableProviders.length>1?availableProviders:['codex','deepseek','workbuddy'];const next=order[(order.indexOf(selectedProvider)+1)%order.length]||'codex';if(next===selectedProvider)return;busy(true);try{const data=await post('/api/provider',{provider:next});renderProvider(data);audio.pause();statusBox.textContent='● 已切换到 '+data.model+' · 保留近期聊天';}catch(err){statusBox.textContent='切换失败：'+err.message;}finally{busy(false);}};
 const seconds=ms=>ms==null?'—':(ms/1000).toFixed(2)+'s';
 function record(data){measurements.unshift(data);measurements.splice(8);const table=document.createElement('table');table.style.cssText='width:100%;font-size:11px;border-spacing:8px;text-align:left';const head=table.createTHead().insertRow();['模型','首字','文本','语音','总计'].forEach(s=>{const th=document.createElement('th');th.textContent=s;head.append(th);});const body=table.createTBody();measurements.forEach(d=>{const row=body.insertRow();[d.model,seconds(d.first_text_ms),seconds(d.llm_ms),seconds(d.tts_ms),seconds(d.total_ms)].forEach(s=>{row.insertCell().textContent=s;});});document.getElementById('comparisons').replaceChildren(table);}
 async function submitStudioEvent(event){
@@ -49,7 +49,7 @@ function showReply(data){
  }
 }
 
-document.getElementById('send').onclick=()=>ask(document.getElementById('comment').value);
+document.getElementById('send').onclick=()=>{const el=document.getElementById('comment');const v=el.value.trim();if(!v)return;ask(v);el.blur();};
 
 document.getElementById('resetSession').onclick=async()=>{if(inFlight)return;busy(true);try{await post('/api/reset',{});statusBox.textContent='两个模型的对话上下文已清空';}catch(err){statusBox.textContent=err.message;}finally{busy(false);}};
 document.querySelectorAll('.note').forEach(p=>{if(p.textContent.includes('当前未接入'))p.textContent='已接入 Codex 与 DeepSeek Flash，可随时切换；晓伊原声共用。网易云点歌与真实 Live2D 已接入。首字为服务端测量值，当前网页仍等待文字和语音全部完成后显示。';});

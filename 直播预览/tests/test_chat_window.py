@@ -109,7 +109,7 @@ class WindowTests(unittest.TestCase):
         self.rules.due()
         self.assertEqual(self.rules.state['jobs'], [])
         for i in range(2):
-            event = chat('manual'+str(i), '本地调试')
+            event = chat('manual'+str(i), '本地调试' + str(i))
             event['simulation'] = True
             self.rules.ingest(event)
         self.assertIsNotNone(self.rules.next_job())

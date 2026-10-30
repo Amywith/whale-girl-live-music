@@ -4,8 +4,9 @@
  class MusicQueueView{
   constructor(root,heading){
    this.root=root;this.heading=heading;this.key=null;this.policy={};this.lastFrame=0;this.holdUntil=0;this.hover=false;this.cycleHeight=0;this.offset=0;this.lastWritten=0;
-   this.now=el('div','music-current');this.now.append(el('span','music-playing-label','♫ 正在播放'));
+   this.now=el('div','music-current');this.now.append(el('span','music-playing-label','当前播放'));
    this.currentTitle=el('strong','music-current-title');this.currentArtist=el('span','music-current-artist');this.now.append(this.currentTitle,this.currentArtist);
+   this.eq=el('span','music-eq');for(let i=0;i<4;i++)this.eq.append(document.createElement('i'));this.now.append(this.eq);
    this.next=el('div','music-next');this.notice=el('div','music-schedule-status');
    this.list=el('div','music-pending');this.list.tabIndex=0;this.list.setAttribute('aria-label','点歌滚榜，按先后顺序待播');
    this.track=el('div','music-roll-track');this.cycle=el('div','music-roll-cycle');this.cycle.setAttribute('role','list');this.track.append(this.cycle);this.list.append(this.track);
@@ -17,8 +18,9 @@
   }
   update(m){
    const queue=m.queue||[],current=(m.player||{}).current;this.policy=m.limits||{};
-   this.heading.textContent='点歌滚榜 · 待播 '+queue.length+' / '+(this.policy.max_pending??12)+' 首';
-   this.footer.textContent='发「点歌 歌名」加入待播 · 上限'+(this.policy.max_pending??12)+'首';
+   this.heading.textContent=queue.length+' 首';
+   const empty=document.getElementById('queueEmpty');if(empty)empty.hidden=queue.length>0||!!current;
+   this.footer.textContent='发「点歌 歌名」加入待播';
    this.currentTitle.textContent=current?.title||'等待音乐响起';this.currentArtist.textContent=current?.artist||'一起听点喜欢的';
    this.now.title=current?current.title+' · '+current.artist:'当前暂无播放';
    const nativeNext=(m.player||{}).next;

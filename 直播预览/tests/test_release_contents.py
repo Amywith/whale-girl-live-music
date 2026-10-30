@@ -31,7 +31,7 @@ class ReleaseContentsTests(unittest.TestCase):
     def test_published_rules_keep_music_window_and_no_watch_section(self):
         rules=RuleConfig(ROOT).snapshot()
         self.assertNotIn('watch',rules)
-        self.assertEqual(rules['studio']['chat_max_pending'],7)
+        self.assertEqual(rules['studio']['chat_max_pending'],20)
         self.assertEqual(rules['music']['max_pending'],12)
         self.assertEqual(rules['music']['max_pending_per_user'],2)
 

@@ -1,21 +1,29 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>爱吃蛋包饭的大肥鱼 · 直播控制台</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>肥波 · 直播控制台</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#090f20;color:#e8efff;font:15px 'Microsoft YaHei',sans-serif}header{padding:17px 26px;border-bottom:1px solid #23304a;display:flex;justify-content:space-between;align-items:center;gap:15px}header b{font-size:20px}small,.muted{color:#8fa3c9}.panel h1{font-size:24px;margin-top:5px}.panel p{line-height:1.9;color:#9cb0d0}.status{padding:12px 16px;border-radius:12px;background:#17243a;border:1px solid #2d405d;color:#9fc7ea;font-size:13px}.controls{margin:22px 0;background:#111d30;border:1px solid #283952;border-radius:18px;padding:20px}label{display:block;font-size:13px;color:#abc0db;margin:14px 0 9px}input{width:100%;padding:12px;border:1px solid #38506e;background:#0a1526;color:white;border-radius:10px;font:inherit}button{padding:12px 16px;border:0;border-radius:10px;background:#3b79ce;color:white;cursor:pointer;font:inherit;margin-top:10px}button:hover{filter:brightness(1.2)}.buttons{display:flex;gap:10px;flex-wrap:wrap}.buttons button{background:#263d5d}.buttons .pink{background:#af5686}.note{font-size:12px}a{color:#93bfff}
 </style><link rel="stylesheet" href="live_view.css"></head>
-<body><header><b>🐋 爱吃蛋包饭的大肥鱼 · 直播控制台</b><small>本地管理 / 未连接抖音</small></header>
+<body><header><b>🐋 肥波 · 直播控制台</b><small>本地管理 / 未连接抖音</small></header>
 <main>
-<section class="stage" data-theme="day" aria-label="爱吃蛋包饭的大肥鱼直播画面">
- <div class="shop-brand"><span class="shop-eyebrow"><i></i> <span id="businessPeriod">白天营业中</span> · 饭钱小铺</span><h1><span>爱吃蛋包饭的</span>大肥鱼<span class="brand-wave">～</span></h1><div class="shop-brand-footer"><p>陪你聊天听歌，认真攒饭钱。</p><div class="beijing-clock" aria-label="北京时间"><span>北京时间</span><time id="beijingClock">--:--:--</time></div></div></div>
- <section class="conversation-pane broadcast-pane"><div class="pane-heading"><span>小铺聊天簿</span><small>有一句，聊一句</small></div><div id="conversation" class="conversation-list" role="log" tabindex="0" aria-label="已回应的对话记录"><div class="empty-feed">还没有对话，等你来聊聊</div></div><div class="paper-footer" id="shopPaperFooter">今天，也要好好吃饭。</div></section>
- <section class="whale-pane" aria-label="大肥鱼的工位"><div class="actor" id="actor"><canvas id="live2dCanvas" aria-label="实时 Live2D 鲸鱼娘"></canvas><span id="actorLoading">本鲸正在收拾工位…</span></div><div class="bubble" id="bubble" aria-live="polite">本鲸开工啦，陪你聊会儿～</div></section>
- <div class="card balance"><div class="income-line"><small id="incomeLabel">今日收入</small><strong><span id="incomeToday">0.00</span><span>元</span></strong></div><div class="expense-line"><small>估算支出</small><strong id="expenseToday">¥0.000</strong></div><div class="finance-detail"><span>结余 <b id="incomeNet">¥0.00</b></span><span>消耗 <b id="tokenToday">0</b> tokens</span></div></div>
- <section class="card queue" aria-label="小铺点歌机"><small>点歌滚榜 · 待播 0 / 12 首</small><div id="songs"></div></section>
- <div class="shop-note"><span class="note-star">✦</span><p>好好吃饭<br>好好生活</p><small>下一碗，会更好。</small></div>
- <div class="secret-hint">✦ 弹幕里藏着各种神秘小指令，自己试试看</div>
- <section class="danmaku-pane broadcast-pane"><div class="pane-heading"><span>观众动态</span><small id="feedConnection" hidden>等待连接</small></div><div class="chat ticker-feed" id="chat" role="log" tabindex="0" aria-label="实时弹幕与礼物滚动栏"><div class="empty-feed">弹幕和礼物会出现在这里</div></div></section>
+<section class="stage" data-theme="day" aria-label="鲸鱼娘直播间画面">
+  <section class="pvz-screen" aria-label="游戏画面" tabindex="0"><span class="pvz-idle">🎮 植物大战僵尸未启动</span><img id="pvzFrame" alt=""><span class="pvz-hint">点击画面=游戏内点击 · 点中后键盘可操控</span></section>
+  <section class="gift-menu" aria-label="礼物玩法">
+   <div class="gift-head"><b><i>🎁</i>礼物玩法</b><span>6 种</span></div>
+   <div class="gift-rows">
+    <div class="gift-row"><img src="assets/gift_icons/love.png" alt=""><b>爱心</b><span>比心+爱心</span></div>
+    <div class="gift-row"><img src="assets/gift_icons/flower.png" alt=""><b>鲜花</b><span>跳一小段</span></div>
+    <div class="gift-row"><img src="assets/gift_icons/lollipop.png" alt=""><b>棒棒糖</b><span>脸红撒娇</span></div>
+    <div class="gift-row"><img src="assets/gift_icons/beer.png" alt=""><b>大啤酒</b><span>干杯+蛋包饭</span></div>
+    <div class="gift-row"><img src="assets/gift_icons/duck.png" alt=""><b>加油鸭</b><span>开心打气</span></div>
+    <div class="gift-row"><img src="assets/gift_icons/swan.png" alt=""><b>天鹅之梦</b><span>翩翩起舞</span></div>
+   </div>
+  </section>
+  <section class="whale-pane" aria-label="鲸鱼娘工位"><div class="actor" id="actor"><canvas id="live2dCanvas" aria-label="实时 Live2D 鲸鱼娘"></canvas><span id="actorLoading">本鲸正在收拾工位…</span><div class="bubble" id="bubble" aria-live="polite">本鲸开工啦，陪你聊会儿～</div></div></section>
+  <section class="card balance ledger" aria-label="鲸鱼账本"><h3>鲸鱼账本</h3><div class="ledger-row"><span>今日鱼粮</span><b><span id="incomeToday">0.00</span> 元</b></div><div class="ledger-row"><span>今天吃了</span><b id="expenseToday">¥0.00</b></div><div class="ledger-row strong"><span>账户余额</span><b id="incomeNet">¥0.00</b></div><div class="ledger-row dim"><span>Token 消耗</span><b id="tokenToday">0</b></div><div class="ledger-foot" id="ledgerFoot">0 音浪 · 0 份礼物</div></section>
+  <section class="card queue" aria-label="点歌队列"><div class="queue-head"><b><i class="queue-ico">♫</i>点歌</b><span class="queue-count" id="queueCount">0 首</span></div><p class="queue-sub">想听什么歌<br>在公屏打出来哦~</p><div id="songs"></div><div class="queue-empty" id="queueEmpty">后面没有排队啦～</div></section>
+  <div class="ai-pill ai-pill-float"><i>◉</i>AI生成</div>
 </section>
-<section class="panel"><div class="muted">LIVE STUDIO / CONTROL</div><h1>直播调试后台</h1><p>直播画面与调试预览读取同一份后台状态。</p><div class="status" id="status">正在连接后台…</div><div class="controls"><label for="comment">模拟观众弹幕</label><input id="comment" value="大肥鱼，今天吃饭了吗？"><button id="send">发送测试弹幕</button><label>场景测试</label><div class="buttons"><button class="pink" id="gift">🎁 模拟送礼物</button><button id="idle">恢复日常</button><button id="clear">清空画面记录</button><button id="clearQueues" title="清空待播歌曲、待回复消息及语音重试，收入记录保留">清空本场队列</button><button id="resetStats" title="收入、支出、礼物数和token归零；保留聊天与点歌">清空收支统计</button></div></div><p class="note">收礼物触发开心表现；日常按回复选择表情，弹幕可换装饰和道具。</p><p class="note">聊天和点歌直接发弹幕，抖音接入在下方配置。</p></section>
+<section class="panel"><div class="muted">LIVE STUDIO / CONTROL</div><h1>直播调试后台</h1><p>直播画面与调试预览读取同一份后台状态。</p><div class="status" id="status">正在连接后台…</div><div class="controls"><label for="comment">模拟观众弹幕</label><input id="comment" value="肥波，今天吃饭了吗？"><button id="send">发送测试弹幕</button><label>场景测试</label><div class="buttons"><button class="pink" id="gift">🎁 模拟送礼物</button><button id="idle">恢复日常</button><button id="clear">清空画面记录</button><button id="clearQueues" title="清空待播歌曲、待回复消息及语音重试，收入记录保留">清空本场队列</button><button id="resetStats" title="收入、支出、礼物数和token归零；保留聊天与点歌">清空收支统计</button></div></div><p class="note">收礼物触发开心表现；日常按回复选择表情，弹幕可换装饰和道具。</p><p class="note">聊天和点歌直接发弹幕，抖音接入在下方配置。</p></section>
 </main>
 <script>
 const $=id=>document.getElementById(id);let timer;
@@ -23,5 +31,80 @@ function scene(text){clearTimeout(timer);$('status').textContent='● '+text;}
 $('comment').onkeydown=e=>{if(e.key==='Enter')$('send').click();};
 $('idle').onclick=()=>scene('恢复日常');
 </script>
-<script src="live_view.js"></script><script src="/assets/live2d/vendor/pixi.min.js"></script><script src="/assets/live2d/vendor/live2dcubismcore.min.js"></script><script src="/assets/live2d/vendor/cubism4.min.js"></script><script src="/assets/live2d/actor.js"></script><script src="live.js"></script><script src="music_queue.js"></script><script src="presentation.js"></script><script src="voice_player.js"></script><script src="studio.js"></script>
+<script src="live_view.js"></script><script src="/assets/live2d/vendor/pixi.min.js"></script><script src="/assets/live2d/vendor/live2dcubismcore.min.js"></script><script src="/assets/live2d/vendor/cubism4.min.js"></script><script src="/assets/live2d/actor.js"></script><script src="live.js"></script><script src="music_queue.js?v=2"></script><script src="presentation.js"></script><script src="voice_player.js"></script><script src="studio.js"></script>
+<script>
+(function(){
+  var box=document.querySelector('.pvz-screen');
+  if(!box)return;
+  var img=document.getElementById('pvzFrame');
+  var idle=box.querySelector('.pvz-idle');
+  var ws=null,seq=1,busy=false,trying=false,alive=false,lastMsg=0,lastKeep=0,gameSize={w:0,h:0},sessionId=null;
+  function showIdle(on){idle.style.display=on?'':'none';}
+  function cdp(method,params){if(ws&&ws.readyState===1&&sessionId){try{ws.send(JSON.stringify({id:seq++,method:method,params:params,sessionId:sessionId}));}catch(_){}}}
+  function tryConnect(){
+    if(trying)return;trying=true;
+    fetch('/api/pvz/target',{cache:'no-store'}).then(function(r){return r.json();}).then(function(t){
+      trying=false;
+      if(!t||!t.ok||!t.targetId){ws=null;sessionId=null;showIdle(true);alive=false;return;}
+      showIdle(false);
+      sessionId=null;
+      var sock=new WebSocket(t.ws);
+      sock.onopen=function(){
+        try{sock.send(JSON.stringify({id:seq++,method:'Target.attachToTarget',params:{targetId:t.targetId,flatten:true}}));}catch(_){ }
+        lastMsg=Date.now();lastKeep=Date.now();
+      };
+      sock.onmessage=function(ev){busy=false;lastMsg=Date.now();try{
+        var m=JSON.parse(ev.data);
+        if(m.id&&m.result&&m.result.sessionId&&!sessionId){sessionId=m.result.sessionId;cdp('Page.setWebLifecycleState',{state:'active'});cdp('Runtime.evaluate',{expression:'JSON.stringify({w:innerWidth,h:innerHeight})',returnByValue:true});return;}
+        if(!sessionId||m.sessionId!==sessionId)return;
+        if(m.id&&m.result&&m.result.data){img.src='data:image/jpeg;base64,'+m.result.data;alive=true;showIdle(false);}
+        else if(m.id&&m.result&&m.result.result&&typeof m.result.result.value==='string'){var s=JSON.parse(m.result.result.value);if(s&&s.w>0){gameSize=s;}}
+      }catch(_){}};
+      sock.onclose=function(){if(ws===sock){ws=null;sessionId=null;showIdle(!alive);}};
+      sock.onerror=function(){};
+      ws=sock;
+    }).catch(function(){trying=false;ws=null;showIdle(true);alive=false;});
+  }
+  /* ── 交互转发：把预览画面上的点击/按键真实传进游戏 ── */
+  function toGame(e){
+    if(!gameSize.w)return null;
+    var r=img.getBoundingClientRect();
+    var s=Math.max(r.width/gameSize.w,r.height/gameSize.h);
+    var dx=(r.width-gameSize.w*s)/2,dy=(r.height-gameSize.h*s)/2;
+    var x=(e.clientX-r.left-dx)/s,y=(e.clientY-r.top-dy)/s;
+    if(x<0||y<0||x>gameSize.w||y>gameSize.h)return null;
+    return {x:Math.round(x),y:Math.round(y)};
+  }
+  function sendInput(method,params){cdp(method,params);}
+  img.addEventListener('click',function(e){
+    var p=toGame(e);if(!p)return;
+    e.preventDefault();
+    sendInput('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y});
+    sendInput('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',clickCount:1});
+    sendInput('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',clickCount:1});
+  });
+  box.addEventListener('keydown',function(e){
+    if(!alive||!ws||ws.readyState!==1)return;
+    if(e.key==='Tab')return;
+    e.preventDefault();
+    sendInput('Input.dispatchKeyEvent',{type:'rawKeyDown',key:e.key,code:e.code,windowsVirtualKeyCode:e.keyCode,nativeVirtualKeyCode:e.keyCode});
+  });
+  box.addEventListener('keyup',function(e){
+    if(!alive||!ws||ws.readyState!==1)return;
+    if(e.key==='Tab')return;
+    e.preventDefault();
+    sendInput('Input.dispatchKeyEvent',{type:'keyUp',key:e.key,code:e.code,windowsVirtualKeyCode:e.keyCode,nativeVirtualKeyCode:e.keyCode});
+  });
+  setInterval(function(){
+    if(!ws||ws.readyState===3||ws.readyState===2){tryConnect();return;}
+    if(ws.readyState===1){
+      var now=Date.now();
+      if(now-lastMsg>5000){try{ws.close();}catch(_){ } ws=null;showIdle(!alive);tryConnect();return;}
+      if(now-lastKeep>30000){lastKeep=now;cdp('Page.setWebLifecycleState',{state:'active'});}
+      if(!busy){busy=true;cdp('Page.captureScreenshot',{format:'jpeg',quality:60});}
+    }
+  },110);
+  tryConnect();
+})();
+</script>
 </body></html>

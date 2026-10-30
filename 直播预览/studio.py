@@ -43,7 +43,7 @@ class EventRules:
             atomic_json(self.config_path, self.config)
         self.reload_config()
         self.state = json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {}
-        for key, default in {'seen': {}, 'combos': {}, 'settled': {}, 'catalog': {}, 'jobs': [], 'history': [], 'user_last': {}, 'chat_last': 0, 'music_inbox': []}.items():
+        for key, default in {'seen': {}, 'combos': {}, 'settled': {}, 'catalog': {}, 'jobs': [], 'history': [], 'user_last': {}, 'chat_last': 0, 'music_inbox': [], 'recent_chat_text': {}}.items():
             self.state.setdefault(key, default)
         self.income = GiftIncome(self.state.setdefault('income', {}), self.clock)
         self.presentation = Presentation(self.state.setdefault('presentation', {}), self.clock, archive_limit=lambda: self.rulebook.snapshot()['live_tools']['history_retention_messages'])
@@ -144,6 +144,17 @@ class EventRules:
                         self.save()
                         return result
                     jobs = self.state['jobs']
+                    # 同文去重：同一观众短窗口内重发一模一样的弹幕（误双击/以为没发出）只回一次。
+                    # 只拦普通弹幕；点歌命令有自己的去重，上面已提前返回。
+                    text_key = str(event.get('roomId', 'local')) + ':' + str(event['user']['id']) + ':' + re.sub('\\s+', '', text)
+                    text_seen = self.state['recent_chat_text'].get(text_key)
+                    if text_seen is not None and now - text_seen < self.config['chat_duplicate_window']:
+                        self.log('chat', event['user']['nickname'] + ' 短时间内重发同一条弹幕，已忽略：' + text)
+                        self.save()
+                        return {'status': 'duplicate', 'message': '同一条弹幕刚发过，已忽略重复发送'}
+                    self.state['recent_chat_text'][text_key] = now
+                    if len(self.state['recent_chat_text']) > 2000:
+                        self.state['recent_chat_text'] = dict(sorted(self.state['recent_chat_text'].items(), key=lambda kv: kv[1])[-1000:])
                     if self.sampled_chat(event):
                         jobs[:] = [j for j in jobs if not (j['state'] == 'queued' and j['event']['type'] == 'chat' and self.sampled_chat(j['event']) and (j['event']['user']['id'] == event['user']['id']))]
                     chats = [j for j in jobs if j['state'] == 'queued' and j['event']['type'] == 'chat']
@@ -223,6 +234,13 @@ class EventRules:
         if delta <= 0:
             return
         total = gift['unit_diamonds'] * gift['count'] if gift['unit_diamonds'] is not None else None
+        board = self.state.setdefault('feeders', {})
+        fid = str(gift['user'].get('id') or gift['user'].get('nickname') or 'anon')[:60]
+        entry = board.setdefault(fid, {'name': str(gift['user'].get('nickname') or fid)[:20], 'coins': 0, 'gifts': 0, 'updated': self.clock()})
+        entry['name'] = str(gift['user'].get('nickname') or entry['name'])[:20]
+        entry['coins'] += total or 0
+        entry['gifts'] += delta
+        entry['updated'] = self.clock()
         tier = self.config['gift_tiers'][0]
         if total is not None:
             tier = max((t for t in self.config['gift_tiers'] if total >= t['min_diamonds']), key=lambda t: t['min_diamonds'])
@@ -318,7 +336,7 @@ class Studio:
         with self.rules.lock:
             self.rules.reload_config()
             clip = any(((self.rules.root / 'assets/gift_audio' / ('meow_paw' + e)).exists() for e in ('.mp3', '.wav', '.ogg')))
-            return {'playback_blocked': self.playback_blocked, 'voice': self.voice, 'audio_warning': self.audio_warning, 'voice_retries': len(self.rules.state['voice_retries']), 'playback_epoch': self.rules.state['playback_epoch'], 'error': self.rules.config_error or self.error, 'processing': any((j['state'] in ('generating', 'ready') for j in self.rules.state['jobs'])), 'pending': len(self.rules.state['jobs']), 'combos': len(self.rules.state['combos']), 'chat_selection': self.rules.config['chat_selection'], 'chat_window_size': self.rules.config['chat_max_pending'], 'chat_discard_before_selected': self.rules.config['chat_discard_before_selected'], 'gift_reply_mode': self.rules.config['gift_reply_mode'], 'history_retained_messages': len(self.rules.presentation.state['archive']), 'music_command': copy.deepcopy(self.rules.state.get('music_command')), 'history': copy.deepcopy(self.rules.state['history'][-30:]), 'tiers': self.rules.config['gift_tiers'], 'meow_clip': clip, 'config_file': self.rules.config_path.name, 'simulation_gift_prices': copy.deepcopy(self.rules.config['simulation_gift_prices']), 'income': self.rules.income.summary()}
+            return {'playback_blocked': self.playback_blocked, 'voice': self.voice, 'audio_warning': self.audio_warning, 'voice_retries': len(self.rules.state['voice_retries']), 'playback_epoch': self.rules.state['playback_epoch'], 'error': self.rules.config_error or self.error, 'processing': any((j['state'] in ('generating', 'ready') for j in self.rules.state['jobs'])), 'pending': len(self.rules.state['jobs']), 'combos': len(self.rules.state['combos']), 'chat_selection': self.rules.config['chat_selection'], 'chat_window_size': self.rules.config['chat_max_pending'], 'chat_discard_before_selected': self.rules.config['chat_discard_before_selected'], 'gift_reply_mode': self.rules.config['gift_reply_mode'], 'history_retained_messages': len(self.rules.presentation.state['archive']), 'music_command': copy.deepcopy(self.rules.state.get('music_command')), 'history': copy.deepcopy(self.rules.state['history'][-30:]), 'tiers': self.rules.config['gift_tiers'], 'meow_clip': clip, 'config_file': self.rules.config_path.name, 'simulation_gift_prices': copy.deepcopy(self.rules.config['simulation_gift_prices']), 'income': self.rules.income.summary(), 'feeders': sorted(self.rules.state.get('feeders', {}).values(), key=lambda e: -e.get('coins', 0))[:8]}
 
     def presentation(self):
         with self.rules.lock:
