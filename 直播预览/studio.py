@@ -169,6 +169,36 @@ class EventRules:
             self.save()
             return result
 
+    IDLE_TALK_CUES = (
+        '（系统提示：直播间冷场一小会儿了。不要回复本条消息，当它不存在；自然地看一眼 game_context 里的真实战况，或眼前的画面、现在的时间，自己找话题说一句短的，像自言自语，不要@谁，不要重复最近说过的内容。）',
+        '（系统提示：有一阵子没人说话了。照常待着就好：可以聊聊眼前的画面、刚才那局游戏的走向、随口的小念头或这个时间段的小感受，一句话即可，像直播时自然的自言自语。）',
+        '（系统提示：安静一会儿了。挑一个具体的小细节说一句——比如场上正在发生什么、桌上的东西、天气或时间，短句，口语，不复读最近说过的话题。）',
+        '（系统提示：冷场中。你可以说一句轻松的碎碎念把直播间填上，比如对游戏里某个瞬间的 realtime 吐槽；只说一句，不总结、不客套、不@任何人。）',
+    )
+
+    def _maybe_idle_talk(self):
+        try:
+            gap = float(self.config.get('idle_talk_seconds', 75) or 0)
+            if not self.config.get('idle_talk_enabled', True) or gap <= 0:
+                return
+            now = self.clock()
+            if now - self.state.setdefault('idle_talk_last_at', 0) < gap + random.uniform(0, gap * 0.3):
+                return
+            with self.lock:
+                if any(j['state'] == 'queued' for j in self.state['jobs']):
+                    return
+                if now - self.state.get('last_activity_at', 0) < gap:
+                    return
+                self.state['idle_talk_last_at'] = now
+                index = int(self.state.setdefault('idle_talk_index', 0))
+                self.state['idle_talk_index'] = index + 1
+            cue = self.IDLE_TALK_CUES[index % len(self.IDLE_TALK_CUES)]
+            event = {'id': 'idle-talk-' + str(now) + '-' + str(index), 'platform': 'douyin', 'roomId': 'local', 'type': 'chat', 'ts': int(now * 1000), 'user': {'id': 'local:idle-talk', 'nickname': '小剧场'}, 'data': {'content': cue}, 'voice': True, 'simulation': True}
+            self.ingest(event)
+            self.log('chat', '冷场自言自语已安排')
+        except Exception as exc:
+            self.log('chat', '冷场自言自语失败：' + str(exc)[:120])
+
     def _welcome(self, event):
         now, policy = (self.clock(), self.rulebook.snapshot()['welcome'])
         key = str(event.get('roomId', 'local')) + ':' + event['user']['id']
@@ -487,6 +517,7 @@ class Studio:
         while not self.stop_event.wait(0.25):
             if time.time() - last_housekeeping > 1:
                 self.rules.due()
+                self._maybe_idle_talk()
                 last_housekeeping = time.time()
             with self.rules.lock:
                 if self.playback_blocked or self.owner_until < time.time() or any((j['state'] == 'ready' for j in self.rules.state['jobs'])) or None:

@@ -119,6 +119,8 @@ studio:
   chat_max_pending: 20
   # 同一观众几秒内重发一模一样的弹幕（误双击/以为没发出）只回一次
   chat_duplicate_window: 20
+  idle_talk_enabled: true
+  idle_talk_seconds: 75
   # 每次启动清掉上一场待播歌曲、未播回复、合并礼物感谢和语音重试，不删除收入/聊天。
   # false 可恢复跨重启续播；清空时会先备份队列，礼物收入仍正常记账。
   clear_queues_on_start: true

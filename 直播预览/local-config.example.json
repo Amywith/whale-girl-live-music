@@ -3,5 +3,8 @@
   "model": "gpt-6-luna",
   "deepseek_model": "deepseek-flash",
   "provider": "codex",
-  "codex_service_tier": "fast"
+  "codex_service_tier": "fast",
+  "node_path": "",
+  "pvz_watchdog": "",
+  "pvz_launcher": ""
 }

@@ -217,10 +217,19 @@ def pvz_target():
         return {'ok': False, 'error': str(error)}
 
 
+def _pvz_tool_path(key, fallback):
+    """PvZ 相关路径优先读 local-config.json，缺省回落到项目内脚本，换电脑不必改代码。"""
+    value = CONFIG.get(key)
+    path = Path(value) if value else Path(fallback)
+    if key == 'node_path' and not path.exists():
+        found = shutil.which('node')
+        return Path(found) if found else path
+    return path
+
 PVZ_TOOLS = {
-    'node': Path(r'D:\Tools\node22\node.exe'),
-    'watchdog': Path(r'D:\pvz2-garden\loop_watchdog.mjs'),
-    'launcher': Path(r'D:\pvz2-garden\ai-bundle\PvZAI-发布包\PvZAI_Launcher.exe'),
+    'node': _pvz_tool_path('node_path', r'D:\Tools\node22\node.exe'),
+    'watchdog': _pvz_tool_path('pvz_watchdog', str(ROOT / 'tools' / 'pvz' / 'loop_watchdog.mjs')),
+    'launcher': _pvz_tool_path('pvz_launcher', r'D:\pvz2-garden\ai-bundle\PvZAI-发布包\PvZAI_Launcher.exe'),
 }
 PVZ = {'proc': None, 'state': 'idle', 'message': '', 'since': 0.0, 'gen': 0}
 PVZ_LOCK = threading.Lock()
