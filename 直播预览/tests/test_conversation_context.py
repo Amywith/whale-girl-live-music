@@ -149,7 +149,7 @@ class ProviderContextTests(unittest.TestCase):
         deepseek = self.manager.adapters['deepseek']
         def stream(body, *args):
             self.assertEqual(len(body['messages']), 2)  # No second adapter-owned history.
-            captured.append(json.loads(json.loads(body['messages'][-1]['content'])['message']))
+            captured.append(json.loads(body['messages'][-1]['content']))
             return {'role':'assistant','content':'回复'}, 0, None
         with patch.object(deepseek, 'key', return_value='offline'), patch.object(deepseek, '_stream', side_effect=stream):
             self.manager.selected = 'deepseek'
@@ -170,7 +170,7 @@ class ProviderContextTests(unittest.TestCase):
         captured = []
         deepseek = self.manager.adapters['deepseek']
         def stream(body, *args):
-            captured.append(json.loads(json.loads(body['messages'][-1]['content'])['message']))
+            captured.append(json.loads(body['messages'][-1]['content']))
             return {'role':'assistant','content':'回复'}, 0, None
         with patch('providers.beijing_time', return_value={'time':'12:00:00'}), \
              patch.object(self.manager.context, 'append'), \

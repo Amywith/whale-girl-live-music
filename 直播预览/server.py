@@ -34,7 +34,15 @@ AUDIO.mkdir(exist_ok=True)
 LOCK = threading.Lock()
 CODEX = shutil.which('codex') or (str(p) if (p := Path(r'D:\Tools\node22\codex.cmd')).exists() else None)
 HISTORY = []
-CONFIG = json.loads((ROOT / 'local-config.json').read_text(encoding='utf-8'))
+def load_config():
+    """新机器上 local-config.json 不存在时自动从 example 生成，避免直接启动就崩。"""
+    path = ROOT / 'local-config.json'
+    if not path.exists():
+        sample = ROOT / 'local-config.example.json'
+        path.write_text(sample.read_text(encoding='utf-8') if sample.exists() else '{}', encoding='utf-8')
+    return json.loads(path.read_text(encoding='utf-8'))
+
+CONFIG = load_config()
 
 def codex_environment():
     env = os.environ.copy()

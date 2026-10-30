@@ -36,7 +36,7 @@ class BeijingClockTests(unittest.TestCase):
                 captured = []
 
                 def fake_stream(body, *args):
-                    captured.append(json.loads(json.loads(body['messages'][-1]['content'])['message']))
+                    captured.append(json.loads(body['messages'][-1]['content']))
                     return {'role': 'assistant', 'content': '好呀' if len(captured) == 1 else '好呀好呀'}, 1, None
 
                 deepseek = manager.adapters['deepseek']
