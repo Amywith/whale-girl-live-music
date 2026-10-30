@@ -261,16 +261,12 @@ html.audience-view .card.queue{left:auto;right:2.4%;top:79%;bottom:auto;transfor
 .card.queue .queue-empty{color:rgba(255,255,255,.55)}
 
 /* ── 礼物玩法字体放大 ── */
-.gift-menu .gift-row i{font-size:2.6cqw}
-.gift-menu .gift-row img{width:3cqw;height:3cqw}
-.gift-menu .gift-row b{font-size:2.6cqw;-webkit-text-stroke:.3cqw #fffdf6}
-.gift-menu .gift-row span{font-size:2.1cqw;-webkit-text-stroke:.24cqw #fffdf6}
+.gift-menu .gift-row i{font-size:2.95cqw}
+.gift-menu .gift-row img{width:3.3cqw;height:3.3cqw}
+.gift-menu .gift-row b{font-size:2.95cqw;-webkit-text-stroke:.3cqw #fffdf6}
+.gift-menu .gift-row span{font-size:2.4cqw;-webkit-text-stroke:.24cqw #fffdf6}
 
-/* ── 顶部游戏画面：植物大战僵尸实况框 ── */
-.pvz-screen{position:absolute;left:0;right:0;top:9%;height:auto;aspect-ratio:16/9;z-index:5;overflow:hidden;background:#050f1e}
-html.audience-view .pvz-screen{left:0;right:0;top:9%;height:auto;aspect-ratio:16/9}
-.pvz-screen img{width:100%;height:100%;object-fit:cover;display:block}
-.pvz-idle{position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.55);font-size:1.7cqw;font-weight:600;letter-spacing:.12cqw;background:repeating-linear-gradient(45deg,#081831 0 2.2cqw,#0a1d38 2.2cqw 4.4cqw)}
+/* 顶部 --game-h 那块留空：游戏本体窗口在直播伴侣里作为独立源叠在上面，网页不再画 */
 
 /* ── 恢复气泡：挂进角色容器，贴头跟随 ── */
 .bubble{display:none!important}
@@ -284,7 +280,3 @@ html.audience-view .bubble{display:none!important}
 .card.balance .ledger-row.strong b{color:#fff9e6}
 .card.balance .ledger-foot{color:rgba(240,232,205,.65)}
 
-/* ── PvZ 预览交互提示 ── */
-.pvz-hint{position:absolute;right:.8cqw;bottom:.6cqw;z-index:7;font-size:1.1cqw;color:rgba(255,255,255,.55);background:rgba(5,15,30,.5);padding:.25cqw .9cqw;border-radius:99px;pointer-events:none;letter-spacing:.05cqw}
-.pvz-screen:focus{outline:none}
-.pvz-screen:focus .pvz-hint{color:rgba(160,220,255,.85);background:rgba(10,40,70,.6)}
