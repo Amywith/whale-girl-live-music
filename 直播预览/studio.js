@@ -62,6 +62,24 @@
  $('pvzLoopStop').onclick=async()=>{try{const d=await post('/api/pvz/loop/stop',{});$('pvzLoopState').textContent='● '+d.message;}catch(e){notice(e.message,true);}pvzPoll();};
  $('pvzLoopClose').onclick=async()=>{if(!confirm('停止循环并关闭 PvZ 游戏？'))return;try{const d=await post('/api/pvz/loop/stop',{close_game:true});$('pvzLoopState').textContent='● '+d.message;}catch(e){notice(e.message,true);}pvzPoll();};
  setInterval(pvzPoll,5000);pvzPoll();
+ // ── 竖屏直播画面窗口：一键开/关 9:16 无黑边窗口（替代手动双击 cmd） ──
+ const stagePanel=document.createElement('div');stagePanel.className='controls pvz-loop-panel';
+ stagePanel.innerHTML='<b>📺 竖屏直播画面（9:16 无黑边）</b><p class="note" id="stageWinState">正在读取…</p><div class="buttons"><button id="stageWinStart">▶ 打开画面窗口</button><button id="stageWinStop" title="关掉那个竖屏画面窗口">■ 关闭画面窗口</button><button id="stageWinOpen" title="在自己的浏览器里再开一个画面页看效果">↗ 浏览器里看看</button></div><p class="note">开一个无标题栏、9:16 无黑边的纯直播画面窗口（本机 810×1440，devicePixelRatio=1），直播伴侣/直播精灵用「窗口采集」选它。<b>改了画面样式后点一次「打开画面窗口」</b>，会先关旧窗口再开新的，不用手动刷缓存。</p>';
+ pvzPanel.after(stagePanel);
+ function renderStageWin(s){
+  const map={idle:'未打开',launching:'启动中…',running:'已打开',error:'出错'};
+  const el=$('stageWinState');
+  el.textContent='● '+(map[s.state]||s.state)+(s.message?' · '+s.message:'')+(s.open?' · 窗口在屏幕上':' · 屏幕上没有画面窗口');
+  el.style.color=s.state==='error'?'#ffb3ae':s.open?'#9fe6b0':'#a9c9ec';
+  $('stageWinStart').disabled=s.state==='launching';
+  $('stageWinStop').disabled=!s.open&&s.state!=='launching';
+ }
+ let stagePolling=false;
+ async function stageWinPoll(){if(stagePolling)return;stagePolling=true;try{const r=await fetch('/api/stage/window/status');if(r.ok)renderStageWin(await r.json());}catch(_){}finally{stagePolling=false;}}
+ $('stageWinStart').onclick=async()=>{const b=$('stageWinStart');b.disabled=true;$('stageWinState').textContent='● 启动中… 约 10 秒（先关旧窗口再开新的）';try{const d=await post('/api/stage/window/start',{});$('stageWinState').textContent='● '+d.message;}catch(e){notice(e.message,true);}finally{b.disabled=false;}setTimeout(stageWinPoll,4000);};
+ $('stageWinStop').onclick=async()=>{try{const d=await post('/api/stage/window/stop',{});$('stageWinState').textContent='● '+d.message;}catch(e){notice(e.message,true);}setTimeout(stageWinPoll,1500);};
+ $('stageWinOpen').onclick=()=>window.open('/?view=live','_blank');
+ setInterval(stageWinPoll,5000);stageWinPoll();
  let playbackEpoch=null;
  let serverAudioWarning=false;
  function syncPlaybackEpoch(epoch){

@@ -1,4 +1,7 @@
 ﻿# 启动大肥鱼竖屏直播窗口并调成 9:16 无黑边（去标题栏、去边框）
+# 输出强制 UTF-8：否则中文状态按系统 ANSI（cp936）输出，被后台按 utf-8 读会变乱码
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Windows.Forms
 $chrome = "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
 if (-not (Test-Path $chrome)) { $chrome = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }

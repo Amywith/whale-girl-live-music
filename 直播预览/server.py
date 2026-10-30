@@ -26,6 +26,12 @@ from expense import ExpenseEstimate
 from gift_replies import plan_gift_reply
 from live_tools import LiveTools
 from live_clock import beijing_time
+try:
+    import ctypes
+    from ctypes import wintypes
+except Exception:  # 非 Windows 环境下窗口管理不可用，其余功能照常
+    ctypes = None
+    wintypes = None
 ROOT = Path(__file__).parent.resolve()
 RUNTIME = ROOT / '.runtime'
 RUNTIME.mkdir(exist_ok=True)
@@ -366,6 +372,133 @@ def pvz_loop_status():
                 'game_ready': pvz_port_open(), 'log': pvz_watchdog_log(), 'since': PVZ['since']}
 
 
+# ── 竖屏直播画面窗口（9:16 无黑边）：开/关/状态，供调试后台一键控制 ──
+STAGE_WIN = {'state': 'idle', 'message': '未启动', 'busy': False}
+STAGE_WIN_LOCK = threading.Lock()
+
+def find_stage_windows():
+    """按窗口标题找竖屏直播画面窗口（live_view.js 把标题写成「…直播间」）。"""
+    if not ctypes:
+        return []
+    try:
+        user32 = ctypes.windll.user32
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        found = []
+        def _cb(hwnd, _lparam):
+            try:
+                if not user32.IsWindowVisible(hwnd):
+                    return True
+                n = user32.GetWindowTextLengthW(hwnd)
+                if not n:
+                    return True
+                buf = ctypes.create_unicode_buffer(n + 1)
+                user32.GetWindowTextW(hwnd, buf, n + 1)
+                if '直播间' in buf.value:
+                    found.append(int(hwnd))
+            except Exception:
+                pass
+            return True
+        user32.EnumWindows(WNDENUMPROC(_cb), 0)
+        return found
+    except Exception:
+        return []
+
+def _decode_console(raw):
+    """PowerShell 控制台输出可能是 UTF-8（脚本里已强制）或系统 ANSI（中文系统 cp936）。"""
+    if not raw:
+        return ''
+    try:
+        return raw.decode('utf-8').strip()
+    except UnicodeDecodeError:
+        for enc in ('cp936', 'gbk', 'mbcs', 'latin-1'):
+            try:
+                return raw.decode(enc).strip()
+            except (UnicodeDecodeError, LookupError):
+                continue
+        return raw.decode('utf-8', 'replace').strip()
+
+def kill_stage_chrome():
+    """只杀竖屏窗口那一组 chrome 进程（按 user-data-dir 关键字），不动用户其它浏览器窗口。"""
+    cmd = ['powershell', '-NoProfile', '-Command',
+           "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+           "Where-Object { $_.CommandLine -like '*chrome-live-916*' } | "
+           "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"]
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception:
+        pass
+
+def _stage_window_flow():
+    try:
+        script = ROOT / 'tools' / 'fit_9x16_window.ps1'
+        if not script.exists():
+            with STAGE_WIN_LOCK:
+                STAGE_WIN['state'], STAGE_WIN['message'] = 'error', '缺少脚本 ' + str(script)
+            return
+        with STAGE_WIN_LOCK:
+            STAGE_WIN['message'] = '正在关掉旧的画面窗口…'
+        kill_stage_chrome()
+        time.sleep(1)
+        with STAGE_WIN_LOCK:
+            STAGE_WIN['message'] = '正在启动竖屏窗口（约 10 秒）…'
+        proc = subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script)],
+                              capture_output=True, timeout=180, creationflags=subprocess.CREATE_NO_WINDOW)
+        # 脚本内已把 Console 输出编码强制为 UTF-8，这里按 utf-8 解；异常时退回系统 ANSI（中文系统是 cp936）
+        out = _decode_console(proc.stdout)
+        deadline = time.time() + 25
+        while time.time() < deadline:
+            if find_stage_windows():
+                with STAGE_WIN_LOCK:
+                    STAGE_WIN['state'] = 'running'
+                    STAGE_WIN['message'] = (out.splitlines()[0] if out else '直播画面窗口已就绪')
+                return
+            time.sleep(1)
+        with STAGE_WIN_LOCK:
+            STAGE_WIN['state'] = 'error'
+            err = _decode_console(proc.stderr)
+            STAGE_WIN['message'] = '窗口没出现：' + ((out or err or '脚本无输出').strip()[-300:])
+    except Exception as exc:
+        with STAGE_WIN_LOCK:
+            STAGE_WIN['state'], STAGE_WIN['message'] = 'error', str(exc)[:300]
+    finally:
+        with STAGE_WIN_LOCK:
+            STAGE_WIN['busy'] = False
+
+def stage_window_start():
+    with STAGE_WIN_LOCK:
+        if STAGE_WIN['busy']:
+            return {'message': '正在启动中，请稍候', 'state': STAGE_WIN['state']}
+        STAGE_WIN['busy'] = True
+        STAGE_WIN['state'], STAGE_WIN['message'] = 'launching', '准备启动…'
+    threading.Thread(target=_stage_window_flow, name='stage-window', daemon=True).start()
+    return {'message': '启动中：开一个 9:16 竖屏直播画面窗口（约 10 秒）', 'state': 'launching'}
+
+def stage_window_stop():
+    with STAGE_WIN_LOCK:
+        STAGE_WIN['busy'] = False
+        STAGE_WIN['message'] = '正在关闭画面窗口…'
+    kill_stage_chrome()
+    time.sleep(2)
+    left = find_stage_windows()
+    with STAGE_WIN_LOCK:
+        if left:
+            STAGE_WIN['state'] = 'error'
+            STAGE_WIN['message'] = '还有 %d 个直播窗口没关掉，手动关一下' % len(left)
+        else:
+            STAGE_WIN['state'], STAGE_WIN['message'] = 'idle', '已关闭直播画面窗口'
+        return {'message': STAGE_WIN['message'], 'state': STAGE_WIN['state']}
+
+def stage_window_status():
+    wins = find_stage_windows()
+    with STAGE_WIN_LOCK:
+        if not wins:
+            if STAGE_WIN['state'] == 'running':
+                STAGE_WIN['state'], STAGE_WIN['message'] = 'idle', '窗口已关闭'
+        elif not STAGE_WIN['busy'] and STAGE_WIN['state'] != 'running':
+            STAGE_WIN['state'], STAGE_WIN['message'] = 'running', '直播画面窗口已打开'
+        return {'state': STAGE_WIN['state'], 'message': STAGE_WIN['message'], 'open': bool(wins), 'count': len(wins)}
+
+
 class Handler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
@@ -393,6 +526,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, pvz_target())
         if path == '/api/pvz/loop/status':
             return self.reply(200, pvz_loop_status())
+        if path == '/api/stage/window/status':
+            return self.reply(200, stage_window_status())
         if path == '/api/debug/turns':
             result = MODELS.debug.index()
             return self.reply(200, result)
@@ -445,7 +580,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.reply(200, {'message': '后台正在停止；聊天、统计和配置保留'})
             threading.Thread(target=self.server.shutdown, name='local-shutdown', daemon=True).start()
             return
-        if path.startswith(('/api/music/', '/api/studio/', '/api/douyin/', '/api/pvz/')):
+        if path.startswith(('/api/music/', '/api/studio/', '/api/douyin/', '/api/pvz/', '/api/stage/')):
             try:
                 if path == '/api/music/connect':
                     result = MUSIC.connect()
@@ -487,6 +622,10 @@ class Handler(SimpleHTTPRequestHandler):
                     result = pvz_loop_start()
                 elif path == '/api/pvz/loop/stop':
                     result = pvz_loop_stop(bool(data.get('close_game')))
+                elif path == '/api/stage/window/start':
+                    result = stage_window_start()
+                elif path == '/api/stage/window/stop':
+                    result = stage_window_stop()
                 elif path == '/api/douyin/connect':
                     result = DOUYIN.connect(data.get('room_id'), data.get('cookie', ''))
                     if not RULES.yaml_mode:
