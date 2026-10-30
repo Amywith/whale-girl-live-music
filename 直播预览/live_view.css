@@ -328,10 +328,14 @@ html.audience-view .ai-pill{font-size:1.75cqw;padding:.55cqw 1.4cqw;background:r
 .card.balance{display:none!important}
 html.audience-view .card.balance{display:none!important}
 
-/* ── 礼物玩法与点歌卡：左右边缘严格对齐（同 right、同宽度） ── */
-.gift-menu,.card.queue{left:auto;right:2.6%;width:33%;max-width:none}
-html.audience-view .gift-menu,html.audience-view .card.queue{left:auto;right:2.6%;width:33%;max-width:none}
-html.audience-view .card.queue{top:61%;bottom:auto;transform:none}
+/* ── 礼物玩法与点歌卡：左右边缘严格对齐（同 right、同宽度） ──
+   控制台页(http://127.0.0.1:18763/) 与 ?view=live 画面窗口必须用同一组数值，
+   否则两边音乐/点歌卡位置会不一致。以前只有 html.audience-view 带 top，
+   控制台页就掉回旧的 top:79%（贴被子），和画面窗口对不上。 */
+.gift-menu{left:auto;right:2.6%;top:41.5%;bottom:auto;width:33%;max-width:none}
+.card.queue{left:auto;right:2.6%;top:61%;bottom:auto;width:33%;max-width:none;transform:none}
+html.audience-view .gift-menu{left:auto;right:2.6%;top:41.5%;bottom:auto;width:33%;max-width:none}
+html.audience-view .card.queue{left:auto;right:2.6%;top:61%;bottom:auto;width:33%;max-width:none;transform:none}
 /* 点歌卡去掉「想听什么歌 / 在公屏打出来哦~」提示 */
 .card.queue .queue-sub{display:none!important}
 html.audience-view .card.queue .queue-sub{display:none!important}
